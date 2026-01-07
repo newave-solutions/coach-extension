@@ -34,6 +34,11 @@ const elements = {
 };
 
 /**
+ * Global state
+ */
+let statusUpdateInterval = null;
+
+/**
  * Initialize popup
  */
 async function initialize() {
@@ -48,10 +53,23 @@ async function initialize() {
   // Set up event listeners
   setupEventListeners();
 
-  // Poll status every 2 seconds
-  setInterval(updateStatus, 2000);
+  // Poll status every 5 seconds (reduced from 2s for performance)
+  statusUpdateInterval = setInterval(updateStatus, 5000);
 
   console.log('[Popup] Initialized');
+}
+
+/**
+ * Cleanup on popup close
+ */
+function cleanup() {
+  console.log('[Popup] Cleaning up...');
+
+  // Clear status polling interval
+  if (statusUpdateInterval) {
+    clearInterval(statusUpdateInterval);
+    statusUpdateInterval = null;
+  }
 }
 
 /**
@@ -112,6 +130,7 @@ async function loadSettings() {
  * Save settings to storage
  */
 async function saveSettings() {
+  console.log('[Popup] saveSettings called');
   try {
     showMessage('Saving...', 'info');
 
@@ -161,6 +180,24 @@ async function saveSettings() {
     // Update status
     elements.apiKeysStatus.textContent = 'Configured ✓';
     elements.apiKeysStatus.style.color = '#10b981';
+
+    // Notify background to reload configuration
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'UPDATE_CONFIG',
+        config: {
+          googleCloudApiKey: googleApiKey,
+          anthropicApiKey: anthropicApiKey,
+          sourceLanguage: sourceLanguage,
+          targetLanguage: targetLanguage
+        }
+      });
+    } catch (configError) {
+      console.warn('[Popup] Failed to update background config:', configError);
+    }
+
+    // Refresh status to show Start button if configured
+    await updateStatus();
 
     showMessage('Settings saved successfully!', 'success');
 
@@ -407,6 +444,9 @@ async function stopSession() {
  * Set up event listeners
  */
 function setupEventListeners() {
+  console.log('[Popup] Setting up event listeners...');
+  console.log('[Popup] Save button:', elements.saveBtn);
+
   // Save button
   elements.saveBtn.addEventListener('click', saveSettings);
 
@@ -501,3 +541,13 @@ if (document.readyState === 'loading') {
 } else {
   initialize();
 }
+
+// Cleanup when popup closes
+window.addEventListener('beforeunload', cleanup);
+
+// Also cleanup when page becomes hidden (popup closes)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    cleanup();
+  }
+});
