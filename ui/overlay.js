@@ -29,11 +29,11 @@ const elements = {
   statusText: document.getElementById('status-text'),
   sessionTimer: document.getElementById('session-timer'),
   platformName: document.getElementById('platform-name'),
-  
+
   // Panels
   transcriptionFeed: document.getElementById('transcription-feed'),
   medicalTermsFeed: document.getElementById('medical-terms-feed'),
-  
+
   // Metrics
   overallScore: document.getElementById('overall-score'),
   overallInterpretation: document.getElementById('overall-interpretation'),
@@ -49,22 +49,22 @@ const elements = {
   issuesSummary: document.getElementById('issues-summary'),
   issuesList: document.getElementById('issues-list'),
   lastUpdate: document.getElementById('last-update'),
-  
+
   // Footer
   totalWordsDisplay: document.getElementById('total-words'),
   totalTermsDisplay: document.getElementById('total-terms'),
   sessionIdDisplay: document.getElementById('session-id'),
   viewDashboardBtn: document.getElementById('view-dashboard-btn'),
-  
+
   // Counts
   transcriptCount: document.getElementById('transcript-count'),
   termsCount: document.getElementById('terms-count'),
-  
+
   // Controls
   minimizeBtn: document.getElementById('minimize-btn'),
   restoreBtn: document.getElementById('restore-btn'),
   collapseAllBtn: document.getElementById('collapse-all-btn'),
-  
+
   // Containers
   overlayContainer: document.getElementById('coach-overlay-container'),
   minimizedIndicator: document.getElementById('minimized-indicator'),
@@ -78,16 +78,16 @@ const elements = {
  */
 function initialize() {
   console.log('[Overlay] Initializing...');
-  
+
   // Set up event listeners
   setupEventListeners();
-  
+
   // Listen for messages from background
   window.addEventListener('message', handleMessage);
-  
+
   // Request current status
   requestStatus();
-  
+
   console.log('[Overlay] Initialized');
 }
 
@@ -98,10 +98,10 @@ function setupEventListeners() {
   // Minimize/Restore
   elements.minimizeBtn?.addEventListener('click', toggleMinimize);
   elements.restoreBtn?.addEventListener('click', toggleMinimize);
-  
+
   // Collapse all
   elements.collapseAllBtn?.addEventListener('click', collapseAllPanels);
-  
+
   // Panel toggles
   document.querySelectorAll('.panel-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -109,7 +109,7 @@ function setupEventListeners() {
       togglePanel(panel);
     });
   });
-  
+
   // Panel header clicks (also toggle)
   document.querySelectorAll('.panel-header').forEach(header => {
     header.addEventListener('click', (e) => {
@@ -119,10 +119,10 @@ function setupEventListeners() {
       }
     });
   });
-  
+
   // Dashboard button
   elements.viewDashboardBtn?.addEventListener('click', openDashboard);
-  
+
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
 }
@@ -145,11 +145,11 @@ function handleKeyboard(e) {
  */
 function handleMessage(event) {
   const message = event.data;
-  
+
   if (!message || !message.action) return;
-  
+
   console.log('[Overlay] Message received:', message.action);
-  
+
   switch (message.action) {
     case 'AGENT_OUTPUT':
       handleAgentOutput(message.payload);
@@ -168,7 +168,7 @@ function handleMessage(event) {
  */
 function handleAgentOutput(payload) {
   const { type, data } = payload;
-  
+
   switch (type) {
     case 'TRANSCRIPTION':
       handleTranscription(data);
@@ -202,15 +202,15 @@ function handleAgentOutput(payload) {
  */
 function handleTranscription(data) {
   const { text, isFinal, confidence, timestamp } = data;
-  
+
   // Only display final transcriptions
   if (!isFinal) return;
-  
+
   // Remove empty state if first transcript
   if (state.transcriptCount === 0) {
     elements.transcriptionFeed.innerHTML = '';
   }
-  
+
   // Create transcript item
   const item = document.createElement('div');
   item.className = 'transcript-item';
@@ -223,17 +223,17 @@ function handleTranscription(data) {
       </span>
     </div>
   `;
-  
+
   // Add to feed
   elements.transcriptionFeed.appendChild(item);
-  
+
   // Auto-scroll to bottom
   elements.transcriptionFeed.scrollTop = elements.transcriptionFeed.scrollHeight;
-  
+
   // Update count
   state.transcriptCount++;
   elements.transcriptCount.textContent = `${state.transcriptCount} lines`;
-  
+
   // Update total words estimate
   state.totalWords += text.split(/\s+/).length;
   elements.totalWordsDisplay.textContent = state.totalWords;
@@ -245,12 +245,12 @@ function handleTranscription(data) {
  */
 function handleMedicalTerm(data) {
   const { original, translation, phonetics, definition, context, timestamp } = data;
-  
+
   // Remove empty state if first term
   if (state.termsCount === 0) {
     elements.medicalTermsFeed.innerHTML = '';
   }
-  
+
   // Create term card
   const card = document.createElement('div');
   card.className = 'term-card';
@@ -280,15 +280,15 @@ function handleMedicalTerm(data) {
       </div>
     ` : ''}
   `;
-  
+
   // Add to feed (prepend so newest is at top)
   elements.medicalTermsFeed.insertBefore(card, elements.medicalTermsFeed.firstChild);
-  
+
   // Update count
   state.termsCount++;
   elements.termsCount.textContent = `${state.termsCount} terms`;
   elements.totalTermsDisplay.textContent = state.termsCount;
-  
+
   // Show notification
   showToast(`Medical term detected: ${original}`, 'info');
 }
@@ -299,30 +299,30 @@ function handleMedicalTerm(data) {
  */
 function handleMetricsUpdate(data) {
   const { metrics, timestamp } = data;
-  
+
   state.currentMetrics = metrics;
-  
+
   // Update overall score
   if (metrics.overallScore !== undefined) {
     elements.overallScore.textContent = Math.round(metrics.overallScore);
     elements.overallInterpretation.textContent = interpretScore(metrics.overallScore);
     elements.overallInterpretation.className = `metric-interpretation ${getScoreClass(metrics.overallScore)}`;
   }
-  
+
   // Update WPM
   if (metrics.averageWPM !== undefined) {
     elements.wpmValue.textContent = Math.round(metrics.averageWPM);
   }
-  
+
   // Update category scores
   updateCategoryScore('fluency', metrics.fluency?.score);
   updateCategoryScore('accuracy', metrics.accuracy?.score);
   updateCategoryScore('grammar', metrics.grammar?.score);
   updateCategoryScore('professional', metrics.professionalConduct?.score);
-  
+
   // Update issues summary
   updateIssuesSummary(metrics);
-  
+
   // Update last update time
   elements.lastUpdate.textContent = formatTime(timestamp);
 }
@@ -334,14 +334,14 @@ function handleMetricsUpdate(data) {
  */
 function updateCategoryScore(category, score) {
   if (score === undefined) return;
-  
+
   const scoreElement = elements[`${category}Score`];
   const barElement = elements[`${category}Bar`];
-  
+
   if (scoreElement) {
     scoreElement.textContent = Math.round(score);
   }
-  
+
   if (barElement) {
     barElement.style.width = `${score}%`;
     barElement.className = `metric-bar-fill ${getScoreClass(score)}`;
@@ -354,7 +354,7 @@ function updateCategoryScore(category, score) {
  */
 function updateIssuesSummary(metrics) {
   const issues = [];
-  
+
   // Check for critical issues
   if (metrics.professionalConduct?.firstPersonViolations?.length > 0) {
     issues.push({
@@ -364,7 +364,7 @@ function updateIssuesSummary(metrics) {
       message: 'First-person violations detected'
     });
   }
-  
+
   // Check for high-priority issues
   if (metrics.fluency?.fillerWords?.length > 10) {
     issues.push({
@@ -374,7 +374,7 @@ function updateIssuesSummary(metrics) {
       message: 'Excessive filler words'
     });
   }
-  
+
   if (metrics.grammar?.errors?.length > 5) {
     issues.push({
       severity: 'high',
@@ -383,7 +383,7 @@ function updateIssuesSummary(metrics) {
       message: 'Multiple grammar errors'
     });
   }
-  
+
   // Show or hide issues summary
   if (issues.length > 0) {
     elements.issuesSummary.style.display = 'block';
@@ -416,7 +416,7 @@ function updateIssuesSummary(metrics) {
  */
 function handleTimerUpdate(data) {
   const { duration } = data;
-  
+
   if (duration && duration.formatted) {
     elements.sessionTimer.textContent = duration.formatted;
     elements.minimizedTimer.textContent = duration.formatted;
@@ -432,13 +432,13 @@ function handleCallStart(data) {
   state.sessionId = data.sessionId;
   state.sessionStartTime = data.timestamp;
   state.platform = data.platform || 'unknown';
-  
+
   // Update UI
   elements.statusIndicator.className = 'status-indicator status-active';
   elements.statusText.textContent = 'Active';
   elements.platformName.textContent = formatPlatformName(state.platform);
   elements.sessionIdDisplay.textContent = formatSessionId(state.sessionId);
-  
+
   showToast('Session started', 'success');
 }
 
@@ -448,14 +448,14 @@ function handleCallStart(data) {
  */
 function handleSessionComplete(data) {
   state.isRunning = false;
-  
+
   // Update UI
   elements.statusIndicator.className = 'status-indicator status-stopped';
   elements.statusText.textContent = 'Stopped';
-  
+
   // Show dashboard button
   elements.viewDashboardBtn.style.display = 'block';
-  
+
   showToast('Session complete. View your performance report!', 'success');
 }
 
@@ -465,9 +465,9 @@ function handleSessionComplete(data) {
  */
 function handleError(data) {
   const { source, message, recoverable } = data;
-  
+
   console.error('[Overlay] Error from', source, ':', message);
-  
+
   const severity = recoverable ? 'warning' : 'error';
   showToast(`${source}: ${message}`, severity);
 }
@@ -493,13 +493,27 @@ function updateStatus(status) {
  */
 function toggleMinimize() {
   state.isMinimized = !state.isMinimized;
-  
+
   if (state.isMinimized) {
+    // Hide the overlay UI
     elements.overlayContainer.style.display = 'none';
     elements.minimizedIndicator.style.display = 'flex';
+
+    // Send message to content script to hide iframe
+    window.parent.postMessage({
+      action: 'HIDE_OVERLAY',
+      source: 'coach-overlay'
+    }, '*');
   } else {
+    // Show the overlay UI
     elements.overlayContainer.style.display = 'flex';
     elements.minimizedIndicator.style.display = 'none';
+
+    // Send message to content script to show iframe
+    window.parent.postMessage({
+      action: 'SHOW_OVERLAY',
+      source: 'coach-overlay'
+    }, '*');
   }
 }
 
@@ -511,7 +525,7 @@ function togglePanel(panelName) {
   const panel = document.getElementById(`${panelName}-panel`);
   const content = document.getElementById(`${panelName}-content`);
   const toggle = panel.querySelector('.panel-toggle');
-  
+
   if (state.collapsedPanels.has(panelName)) {
     // Expand
     state.collapsedPanels.delete(panelName);
@@ -532,7 +546,7 @@ function togglePanel(panelName) {
  */
 function collapseAllPanels() {
   const panels = ['transcription', 'medical-terms', 'metrics'];
-  
+
   panels.forEach(panel => {
     if (!state.collapsedPanels.has(panel)) {
       togglePanel(panel);
@@ -569,12 +583,12 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
-  
+
   elements.toastContainer.appendChild(toast);
-  
+
   // Animate in
   setTimeout(() => toast.classList.add('show'), 10);
-  
+
   // Remove after 3 seconds
   setTimeout(() => {
     toast.classList.remove('show');
@@ -589,12 +603,12 @@ function showToast(message, type = 'info') {
  */
 function formatTime(timestamp) {
   if (!timestamp) return '--:--';
-  
+
   const date = new Date(timestamp);
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-  
+
   return `${hours}:${minutes}:${seconds}`;
 }
 
@@ -611,7 +625,7 @@ function formatPlatformName(platform) {
     'twilio': 'Twilio',
     'unknown': 'Unknown'
   };
-  
+
   return names[platform] || platform;
 }
 

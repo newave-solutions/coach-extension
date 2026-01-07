@@ -28,15 +28,15 @@ function injectOverlay() {
     console.log('[Content] Overlay already injected');
     return;
   }
-  
+
   try {
     console.log('[Content] Injecting overlay...');
-    
+
     // Create iframe for overlay
     overlayIframe = document.createElement('iframe');
     overlayIframe.id = 'coach-extension-overlay';
     overlayIframe.src = chrome.runtime.getURL('ui/overlay.html');
-    
+
     // Style iframe
     overlayIframe.style.cssText = `
       position: fixed;
@@ -50,13 +50,13 @@ function injectOverlay() {
       box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
       display: none;
     `;
-    
+
     // Add to page
     document.body.appendChild(overlayIframe);
-    
+
     overlayInjected = true;
     console.log('[Content] ✓ Overlay injected');
-    
+
   } catch (error) {
     console.error('[Content] Failed to inject overlay:', error);
   }
@@ -127,46 +127,46 @@ function forwardToOverlay(message) {
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[Content] Message received:', message.action);
-  
+
   switch (message.action) {
     case 'INJECT_OVERLAY':
       injectOverlay();
       sendResponse({ success: true });
       break;
-      
+
     case 'SHOW_OVERLAY':
       showOverlay();
       sendResponse({ success: true });
       break;
-      
+
     case 'HIDE_OVERLAY':
       hideOverlay();
       sendResponse({ success: true });
       break;
-      
+
     case 'TOGGLE_OVERLAY':
       toggleOverlay();
       sendResponse({ success: true });
       break;
-      
+
     case 'REMOVE_OVERLAY':
       removeOverlay();
       sendResponse({ success: true });
       break;
-      
+
     case 'AGENT_OUTPUT':
     case 'SYSTEM_EVENT':
       // Forward to overlay
       forwardToOverlay(message);
       sendResponse({ received: true });
       break;
-      
+
     default:
       // Forward all other messages to overlay
       forwardToOverlay(message);
       sendResponse({ received: true });
   }
-  
+
   return false; // Synchronous response
 });
 
@@ -178,9 +178,21 @@ window.addEventListener('message', (event) => {
   if (event.source !== overlayIframe?.contentWindow) {
     return;
   }
-  
+
   const message = event.data;
-  
+
+  // Handle overlay control messages
+  if (message.source === 'coach-overlay') {
+    if (message.action === 'HIDE_OVERLAY') {
+      hideOverlay();
+      return;
+    }
+    if (message.action === 'SHOW_OVERLAY') {
+      showOverlay();
+      return;
+    }
+  }
+
   // Forward to background
   if (message.action) {
     chrome.runtime.sendMessage(message, (response) => {
@@ -202,11 +214,11 @@ window.addEventListener('message', (event) => {
 function initialize() {
   console.log('[Content] Content script loaded');
   console.log('[Content] Page:', window.location.href);
-  
+
   // Inject overlay automatically
   // (can be controlled by settings later)
   injectOverlay();
-  
+
   // Show overlay if there's an active session
   chrome.runtime.sendMessage({ action: 'GET_STATUS' }, (response) => {
     if (response && response.isRunning) {

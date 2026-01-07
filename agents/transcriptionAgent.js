@@ -112,28 +112,23 @@ class TranscriptionAgent {
   }
 
   /**
-   * Initialize audio capture from Chrome tab
-   * IMPORTANT: This captures tab audio output (non-intrusive), NOT user microphone
+   * Initialize audio capture from user's microphone
+   * CHANGED: Using getUserMedia instead of tabCapture (Manifest V3 compatibility)
    * @returns {Promise<boolean>} Success status
    */
   async initializeAudioCapture() {
     try {
-      this.onStatusChange('Initializing audio capture...');
+      this.onStatusChange('Initializing microphone...');
 
-      // Step 1: Request tab audio capture (NON-INTRUSIVE - captures tab output only)
-      const stream = await new Promise((resolve, reject) => {
-        chrome.tabCapture.capture(
-          { audio: true, video: false },
-          (capturedStream) => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-            } else if (!capturedStream) {
-              reject(new Error('Failed to capture tab audio stream'));
-            } else {
-              resolve(capturedStream);
-            }
-          }
-        );
+      // Step 1: Request microphone access
+      // NOTE: This captures microphone, not tab audio (limitation of Manifest V3)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: this.sampleRate
+        }
       });
 
       this.mediaStream = stream;
