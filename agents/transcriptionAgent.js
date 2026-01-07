@@ -112,43 +112,29 @@ class TranscriptionAgent {
   }
 
   /**
-   * Initialize audio capture from user's microphone
-   * CHANGED: Using getUserMedia instead of tabCapture (Manifest V3 compatibility)
+   * Initialize audio capture using offscreen document (Manifest V3)
    * @returns {Promise<boolean>} Success status
    */
   async initializeAudioCapture() {
     try {
       this.onStatusChange('Initializing microphone...');
 
-      // Step 1: Request microphone access
-      // NOTE: This captures microphone, not tab audio (limitation of Manifest V3)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: this.sampleRate
-        }
+      // Create offscreen document if it doesn't exist
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
       });
 
-      this.mediaStream = stream;
+      if (existingContexts.length === 0) {
+        await chrome.offscreen.createDocument({
+          url: 'offscreen.html',
+          reasons: ['USER_MEDIA'],
+          justification: 'Speech recognition for real-time transcription'
+        });
+        console.log('[TranscriptionAgent] Offscreen document created');
+      }
 
-      // Step 2: Create audio context with required sample rate
-      this.audioContext = new AudioContext({
-        sampleRate: this.sampleRate
-      });
-
-      // Step 3: Create media stream source
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-
-      // Step 4: Create script processor for audio chunks
-      // Buffer size: 4096 samples (balance between latency and efficiency)
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-
-      // Step 5: Connect audio nodes
-      source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
-
+      // Note: Audio will be handled by offscreen document
+      // We don't need AudioContext here anymore
       this.onStatusChange('Audio capture initialized');
       console.log('[TranscriptionAgent] Audio capture initialized successfully');
 
@@ -163,12 +149,13 @@ class TranscriptionAgent {
         method: 'initializeAudioCapture',
         message: errorMessage,
         timestamp: Date.now(),
-        recovery: 'Ensure you are on a tab with audio content and have granted permissions'
+        recovery: 'Ensure microphone permissions are granted'
       });
 
       return false;
     }
   }
+
 
   /**
    * Start streaming audio to Google Cloud Speech-to-Text
@@ -243,132 +230,110 @@ class TranscriptionAgent {
   }
 
   /**
-   * Initialize WebSocket connection to Google Cloud Speech-to-Text
+   * Initialize Web Speech API for transcription
+   * Using browser's built-in speech recognition (free, works immediately)
+   * TODO: For production, switch to Google Cloud Speech-to-Text v2
    * @returns {Promise<void>}
    */
   async initializeWebSocket() {
     return new Promise((resolve, reject) => {
-      const url = `wss://speech.googleapis.com/v1/speech:streamingRecognize?key=${this.apiKey}`;
+      try {
+        // Check if Web Speech API is available
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      this.websocket = new WebSocket(url);
-
-      // Handle connection open
-      this.websocket.onopen = () => {
-        console.log('[TranscriptionAgent] WebSocket connected');
-
-        // Reset reconnection counter on successful connection
-        this.reconnectAttempts = 0;
-        this.isReconnecting = false;
-
-        // Send initial configuration
-        const config = {
-          config: {
-            encoding: 'LINEAR16',
-            sampleRateHertz: this.sampleRate,
-            languageCode: this.language,
-            enableAutomaticPunctuation: true,
-            interimResults: true,
-            model: 'medical_conversation', // Optimized for medical terminology
-            useEnhanced: true
-          }
-        };
-
-        this.websocket.send(JSON.stringify(config));
-
-        // Send buffered audio chunks if any
-        if (this.audioBuffer.length > 0) {
-          console.log(`[TranscriptionAgent] Sending ${this.audioBuffer.length} buffered chunks`);
-          this.audioBuffer.forEach(chunk => {
-            this.websocket.send(JSON.stringify(chunk));
-          });
-          this.audioBuffer = [];
-        }
-
-        resolve();
-      };
-
-      // Handle incoming messages
-      this.websocket.onmessage = (event) => {
-        try {
-          const response = JSON.parse(event.data);
-          this.handleTranscriptionResponse(response);
-        } catch (error) {
-          console.error('[TranscriptionAgent] Failed to parse response:', error);
-        }
-      };
-
-      // Handle errors
-      this.websocket.onerror = (error) => {
-        console.error('[TranscriptionAgent] WebSocket error:', error);
-
-        this.onError({
-          source: 'TranscriptionAgent',
-          method: 'initializeWebSocket',
-          message: 'WebSocket connection error',
-          timestamp: Date.now(),
-          recovery: 'Check API key and network connection. Retrying...'
-        });
-
-        reject(error);
-      };
-
-      // Handle connection close with exponential backoff
-      this.websocket.onclose = (event) => {
-        console.log('[TranscriptionAgent] WebSocket closed', event.code, event.reason);
-
-        if (!this.isStreaming || this.isReconnecting) {
+        if (!SpeechRecognition) {
+          reject(new Error('Web Speech API not supported in this browser'));
           return;
         }
 
-        // Attempt reconnection with exponential backoff
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          this.isReconnecting = true;
-          this.reconnectAttempts++;
-          this.performanceMetrics.reconnections++; // Track reconnections
+        // Create speech recognition instance
+        this.recognition = new SpeechRecognition();
 
-          // Calculate delay: min(baseDelay * 2^attempts, maxDelay) + jitter
-          const delay = Math.min(
-            this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
-            this.maxReconnectDelay
-          );
+        // Configure recognition
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.lang = this.language || 'en-US';
+        this.recognition.maxAlternatives = 1;
 
-          // Add random jitter (±20%) to prevent thundering herd
-          const jitter = delay * 0.2 * (Math.random() - 0.5);
-          const finalDelay = delay + jitter;
+        // Handle recognition results
+        this.recognition.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            const isFinal = event.results[i].isFinal;
+            const confidence = event.results[i][0].confidence;
 
-          console.log(
-            `[TranscriptionAgent] Reconnecting in ${Math.round(finalDelay / 1000)}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-          );
-
-          this.onStatusChange(`Reconnecting... (attempt ${this.reconnectAttempts})`);
-
-          setTimeout(() => {
-            this.initializeWebSocket().catch(err => {
-              console.error('[TranscriptionAgent] Reconnection failed:', err);
-              this.isReconnecting = false;
+            // Send to transcription handler
+            this.handleTranscriptionResponse({
+              results: [{
+                alternatives: [{
+                  transcript: transcript,
+                  confidence: confidence || 0.9
+                }],
+                isFinal: isFinal
+              }]
             });
-          }, finalDelay);
+          }
+        };
 
-        } else {
-          // Max retries exceeded
-          console.error('[TranscriptionAgent] Max reconnection attempts exceeded');
+        // Handle errors
+        this.recognition.onerror = (event) => {
+          console.error('[TranscriptionAgent] Speech recognition error:', event.error);
+
+          if (event.error === 'no-speech') {
+            console.log('[TranscriptionAgent] No speech detected');
+            return;
+          }
+
           this.onError({
             source: 'TranscriptionAgent',
-            method: 'initializeWebSocket',
-            message: `Failed to reconnect after ${this.maxReconnectAttempts} attempts`,
+            message: `Speech recognition error: ${event.error}`,
             timestamp: Date.now(),
-            recovery: 'Please check your network connection and restart the session'
+            sessionId: this.sessionId,
+            recoverable: event.error !== 'network'
           });
-          this.stopStreaming();
-        }
-      };
+
+          // Auto-restart on certain errors
+          if (event.error === 'network' || event.error === 'audio-capture') {
+            setTimeout(() => {
+              if (this.isStreaming) {
+                this.recognition.start();
+              }
+            }, 1000);
+          }
+        };
+
+        // Handle end event (auto-restart)
+        this.recognition.onend = () => {
+          console.log('[TranscriptionAgent] Recognition ended');
+          if (this.isStreaming) {
+            // Restart recognition to keep it continuous
+            setTimeout(() => {
+              try {
+                this.recognition.start();
+              } catch (error) {
+                console.warn('[TranscriptionAgent] Could not restart recognition:', error);
+              }
+            }, 100);
+          }
+        };
+
+        // Start recognition
+        this.recognition.start();
+        console.log('[TranscriptionAgent] Web Speech API started');
+
+        resolve();
+
+      } catch (error) {
+        console.error('[TranscriptionAgent] Failed to initialize speech recognition:', error);
+        reject(error);
+      }
     });
   }
 
   /**
    * Handle transcription response from Google Cloud API
-   * @param {Object} response - API response object
-   */
+  * @param {Object} response - API response object
+  */
   handleTranscriptionResponse(response) {
     // Check if response has results
     if (!response.results || response.results.length === 0) {
@@ -466,7 +431,17 @@ class TranscriptionAgent {
       // Log call stop and save final data
       this.logCallStop();
 
-      // Close WebSocket
+      // Stop Web Speech API recognition
+      if (this.recognition) {
+        try {
+          this.recognition.stop();
+        } catch (error) {
+          console.warn('[TranscriptionAgent] Recognition already stopped:', error);
+        }
+        this.recognition = null;
+      }
+
+      // Close WebSocket (kept for future Google Cloud integration)
       if (this.websocket) {
         this.websocket.close();
         this.websocket = null;

@@ -4,18 +4,18 @@
 // Main entry point for Chrome extension backend
 // ===================================================================
 
-import { 
-  MessageTypes, 
+import {
+  MessageTypes,
   createMessageListener,
   sendAgentOutput,
   sendSystemEvent,
   sendError
 } from './utils/messageHandler.js';
 
-import { 
-  loadApiKeys, 
+import {
+  loadApiKeys,
   loadPreferences,
-  hasApiKeys 
+  hasApiKeys
 } from './utils/storageManager.js';
 
 // Agent Orchestrator
@@ -33,7 +33,7 @@ let isInitialized = false;
  */
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Background] Extension installed:', details.reason);
-  
+
   if (details.reason === 'install') {
     // First-time installation
     console.log('[Background] First-time installation');
@@ -59,29 +59,29 @@ chrome.runtime.onStartup.addListener(async () => {
 async function initializeExtension() {
   try {
     console.log('[Background] Initializing extension...');
-    
+
     // Load configuration
     const [apiKeys, preferences] = await Promise.all([
       loadApiKeys(),
       loadPreferences()
     ]);
-    
+
     currentConfig = {
       googleCloudApiKey: apiKeys.googleCloud,
       anthropicApiKey: apiKeys.anthropic,
       targetLanguage: preferences.targetLanguage,
       sourceLanguage: preferences.sourceLanguage
     };
-    
+
     // Check if API keys are configured
     const keysConfigured = await hasApiKeys();
     if (!keysConfigured) {
       console.warn('[Background] API keys not configured');
     }
-    
+
     isInitialized = true;
     console.log('[Background] ✓ Extension initialized');
-    
+
   } catch (error) {
     console.error('[Background] Initialization failed:', error);
   }
@@ -96,14 +96,14 @@ async function initializeExtension() {
 async function handleStartAgents(config, platform = 'unknown') {
   try {
     console.log('[Background] Starting agents...');
-    
+
     if (orchestrator && orchestrator.isRunning) {
-      return { 
-        success: false, 
-        error: 'Agents already running' 
+      return {
+        success: false,
+        error: 'Agents already running'
       };
     }
-    
+
     // Merge with current config
     const agentConfig = {
       ...currentConfig,
@@ -113,7 +113,7 @@ async function handleStartAgents(config, platform = 'unknown') {
         sendError(error.source, error.message, error.recoverable);
       }
     };
-    
+
     // Validate API keys
     if (!agentConfig.googleCloudApiKey) {
       return {
@@ -121,13 +121,13 @@ async function handleStartAgents(config, platform = 'unknown') {
         error: 'Google Cloud API key not configured. Please configure in settings.'
       };
     }
-    
+
     // Create orchestrator
     orchestrator = new AgentOrchestrator(agentConfig);
-    
+
     // Start agents
     const result = await orchestrator.start(platform);
-    
+
     if (result.success) {
       console.log('[Background] ✓ Agents started successfully');
       console.log('[Background] Session ID:', result.sessionId);
@@ -135,15 +135,15 @@ async function handleStartAgents(config, platform = 'unknown') {
       console.error('[Background] Failed to start agents:', result.message);
       orchestrator = null;
     }
-    
+
     return result;
-    
+
   } catch (error) {
     console.error('[Background] Failed to start agents:', error);
     await sendError('Background', error.message, false);
-    
+
     orchestrator = null;
-    
+
     return {
       success: false,
       error: error.message
@@ -158,33 +158,33 @@ async function handleStartAgents(config, platform = 'unknown') {
 async function handleStopAgents() {
   try {
     console.log('[Background] Stopping agents...');
-    
+
     if (!orchestrator || !orchestrator.isRunning) {
       return {
         success: true,
         message: 'No active session'
       };
     }
-    
+
     // Stop orchestrator and get final report
     const sessionData = await orchestrator.stop();
-    
+
     console.log('[Background] ✓ Agents stopped successfully');
     console.log('[Background] Session data:', sessionData?.sessionId);
-    
+
     // Clear orchestrator reference
     orchestrator = null;
-    
+
     return {
       success: true,
       sessionData: sessionData,
       performanceReport: sessionData?.performanceReport
     };
-    
+
   } catch (error) {
     console.error('[Background] Failed to stop agents:', error);
     await sendError('Background', error.message, true);
-    
+
     // Force cleanup on error
     if (orchestrator) {
       try {
@@ -194,7 +194,7 @@ async function handleStopAgents() {
       }
       orchestrator = null;
     }
-    
+
     return {
       success: false,
       error: error.message
@@ -208,7 +208,7 @@ async function handleStopAgents() {
  */
 function handleGetStatus() {
   const orchestratorStatus = orchestrator?.getStatus();
-  
+
   return {
     isInitialized,
     isRunning: orchestrator?.isRunning || false,
@@ -234,24 +234,24 @@ async function handleUpdateConfig(config) {
       ...currentConfig,
       ...config
     };
-    
+
     console.log('[Background] Configuration updated');
-    
+
     // If agents are running, notify about config change
     if (orchestrator && orchestrator.isRunning) {
       console.warn('[Background] Config changed while agents running - restart required');
     }
-    
-    return { 
+
+    return {
       success: true,
       message: 'Configuration updated. Restart agents to apply changes.'
     };
-    
+
   } catch (error) {
     console.error('[Background] Failed to update config:', error);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 }
@@ -280,21 +280,51 @@ chrome.runtime.onMessage.addListener(
     [MessageTypes.START_AGENTS]: async (message) => {
       return await handleStartAgents(message.config, message.platform);
     },
-    
+
     [MessageTypes.STOP_AGENTS]: async () => {
       return await handleStopAgents();
     },
-    
+
     [MessageTypes.GET_STATUS]: () => {
       return handleGetStatus();
     },
-    
+
     [MessageTypes.UPDATE_CONFIG]: async (message) => {
       return await handleUpdateConfig(message.config);
     },
-    
+
     [MessageTypes.AGENT_OUTPUT]: (message) => {
       handleAgentOutput(message);
+      return { received: true };
+    },
+
+    // Offscreen document recognition results
+    'RECOGNITION_RESULT': (message) => {
+      if (orchestrator && orchestrator.agents && orchestrator.agents.transcription) {
+        // Forward to transcription agent
+        orchestrator.agents.transcription.handleTranscriptionResponse({
+          results: [{
+            alternatives: [{
+              transcript: message.data.transcript,
+              confidence: message.data.confidence
+            }],
+            isFinal: message.data.isFinal
+          }]
+        });
+      }
+      return { received: true };
+    },
+
+    'RECOGNITION_ERROR': (message) => {
+      console.error('[Background] Recognition error from offscreen:', message.error);
+      if (orchestrator) {
+        orchestrator.handleError({
+          source: 'SpeechRecognition',
+          message: message.error,
+          timestamp: Date.now(),
+          recoverable: true
+        });
+      }
       return { received: true };
     }
   })
@@ -305,7 +335,7 @@ chrome.runtime.onMessage.addListener(
  */
 chrome.runtime.onSuspend.addListener(() => {
   console.log('[Background] Extension suspending, cleaning up...');
-  
+
   if (orchestrator && orchestrator.isRunning) {
     orchestrator.emergencyStop().catch(console.error);
   }
@@ -316,11 +346,11 @@ chrome.runtime.onSuspend.addListener(() => {
  */
 chrome.action.onClicked.addListener(async (tab) => {
   console.log('[Background] Extension icon clicked');
-  
+
   // Check if on a supported page
   const url = tab.url || '';
   let platform = 'unknown';
-  
+
   if (url.includes('meet.google.com')) {
     platform = 'google-meet';
   } else if (url.includes('zoom.us')) {
@@ -328,7 +358,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   } else if (url.includes('teams.microsoft.com')) {
     platform = 'microsoft-teams';
   }
-  
+
   // Toggle agents on/off
   if (orchestrator && orchestrator.isRunning) {
     await handleStopAgents();
