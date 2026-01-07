@@ -73,6 +73,33 @@ class TranscriptionAgent {
       timer: null
     };
 
+    // Voice Activity Detection
+    this.silenceThreshold = config.silenceThreshold || 0.01; // -40dB
+    this.silenceDetectionEnabled = config.enableSilenceDetection !== false;
+
+    // Audio statistics
+    this.audioStats = {
+      chunksProcessed: 0,
+      chunksSent: 0,
+      silentChunksSkipped: 0,
+      averageLevel: 0,
+      peakLevel: 0
+    };
+
+    // Performance monitoring
+    this.performanceMetrics = {
+      startTime: Date.now(),
+      audioChunksProcessed: 0,
+      transcriptionsReceived: 0,
+      averageLatency: 0,
+      memorySnapshots: [],
+      errors: [],
+      reconnections: 0
+    };
+
+    this.enablePerformanceMonitoring = config.enablePerformanceMonitoring || false;
+    this.monitoringInterval = null;
+
     // Callbacks
     this.onTranscriptionReceived = config.onTranscriptionReceived || (() => { });
     this.onError = config.onError || console.error;
@@ -170,15 +197,35 @@ class TranscriptionAgent {
       // Initialize WebSocket connection
       await this.initializeWebSocket();
 
-      // Process audio chunks as they arrive
+      // Process audio chunks as they arrive with Voice Activity Detection
       this.processor.onaudioprocess = (event) => {
         if (!this.isStreaming) return;
 
         const audioData = event.inputBuffer.getChannelData(0);
-        const int16Array = this.convertFloat32ToInt16(audioData);
 
-        // Send to Google Cloud
+        // Calculate audio level (RMS - Root Mean Square)
+        const level = this.calculateRMS(audioData);
+
+        // Update audio statistics
+        this.audioStats.chunksProcessed++;
+        this.audioStats.averageLevel = (this.audioStats.averageLevel * 0.9) + (level * 0.1);
+        this.audioStats.peakLevel = Math.max(this.audioStats.peakLevel, level);
+
+        // Performance tracking
+        this.performanceMetrics.audioChunksProcessed++;
+
+        // Voice activity detection - skip silent chunks
+        const isSilent = level < this.silenceThreshold;
+
+        if (this.silenceDetectionEnabled && isSilent) {
+          this.audioStats.silentChunksSkipped++;
+          return; // Skip silent chunks to save bandwidth
+        }
+
+        // Convert and send audio
+        const int16Array = this.convertFloat32ToInt16(audioData);
         this.sendAudioChunk(int16Array);
+        this.audioStats.chunksSent++;
       };
 
       this.onStatusChange('Streaming active');
@@ -282,6 +329,7 @@ class TranscriptionAgent {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.isReconnecting = true;
           this.reconnectAttempts++;
+          this.performanceMetrics.reconnections++; // Track reconnections
 
           // Calculate delay: min(baseDelay * 2^attempts, maxDelay) + jitter
           const delay = Math.min(
@@ -340,6 +388,9 @@ class TranscriptionAgent {
     const transcript = result.alternatives[0].transcript;
     const isFinal = result.isFinal || false;
     const confidence = result.alternatives[0].confidence || 0;
+
+    // Track transcription performance
+    this.performanceMetrics.transcriptionsReceived++;
 
     // Create transcription data package
     const transcriptionData = {
@@ -449,6 +500,15 @@ class TranscriptionAgent {
       this.buffer = [];
       this.audioBuffer = [];
 
+      // Stop performance monitoring
+      if (this.monitoringInterval) {
+        clearInterval(this.monitoringInterval);
+        this.monitoringInterval = null;
+      }
+
+      // Generate final performance report
+      this.generatePerformanceReport();
+
       this.onStatusChange('Streaming stopped');
       console.log('[TranscriptionAgent] Cleanup complete');
     }).catch(err => {
@@ -498,6 +558,9 @@ class TranscriptionAgent {
       startTime: this.startTime,
       platform: this.platform
     });
+
+    // Start performance monitoring
+    this.startPerformanceMonitoring();
 
     console.log(`[TranscriptionAgent] Call started - Session ID: ${this.sessionId}`);
   }
@@ -760,6 +823,133 @@ class TranscriptionAgent {
       clearTimeout(this.pendingWrites.timer);
     }
     await this.flushPendingWrites();
+  }
+
+  /**
+   * Calculate RMS (Root Mean Square) level of audio data
+   * @param {Float32Array} samples - Audio samples
+   * @returns {number} RMS level (0-1)
+   */
+  calculateRMS(samples) {
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) {
+      sum += samples[i] * samples[i];
+    }
+    return Math.sqrt(sum / samples.length);
+  }
+
+  /**
+   * Get audio processing statistics
+   * @returns {Object} Audio stats with compression ratio
+   */
+  getAudioStats() {
+    const compressionRatio = this.audioStats.chunksProcessed > 0
+      ? (this.audioStats.silentChunksSkipped / this.audioStats.chunksProcessed * 100).toFixed(1)
+      : 0;
+
+    return {
+      ...this.audioStats,
+      compressionRatio: compressionRatio + '%',
+      effectiveBandwidthSavings: compressionRatio + '%'
+    };
+  }
+
+  /**
+   * Start performance monitoring
+   */
+  startPerformanceMonitoring() {
+    if (!this.enablePerformanceMonitoring) return;
+
+    this.monitoringInterval = setInterval(() => {
+      this.collectPerformanceMetrics();
+    }, 10000); // Every 10 seconds
+  }
+
+  /**
+   * Collect performance metrics including memory usage
+   */
+  collectPerformanceMetrics() {
+    const metrics = {
+      timestamp: Date.now(),
+      uptime: Date.now() - this.performanceMetrics.startTime,
+      audioChunksProcessed: this.performanceMetrics.audioChunksProcessed,
+      transcriptionsReceived: this.performanceMetrics.transcriptionsReceived,
+      reconnections: this.performanceMetrics.reconnections,
+      audioStats: this.getAudioStats()
+    };
+
+    // Check memory usage if available
+    if (performance.memory) {
+      metrics.memoryUsage = {
+        usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024), // MB
+        totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024), // MB
+        limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024) // MB
+      };
+
+      // Warn if memory usage is high
+      const usagePercent = (metrics.memoryUsage.usedJSHeapSize / metrics.memoryUsage.limit) * 100;
+      if (usagePercent > 80) {
+        console.warn(`[TranscriptionAgent] High memory usage: ${usagePercent.toFixed(1)}%`);
+      }
+    }
+
+    console.log('[TranscriptionAgent] Performance metrics:', metrics);
+
+    // Store snapshot
+    this.performanceMetrics.memorySnapshots.push(metrics);
+
+    // Keep only last 50 snapshots
+    if (this.performanceMetrics.memorySnapshots.length > 50) {
+      this.performanceMetrics.memorySnapshots.shift();
+    }
+  }
+
+  /**
+   * Generate performance report
+   * @returns {Object} Performance report
+   */
+  generatePerformanceReport() {
+    const uptime = Date.now() - this.performanceMetrics.startTime;
+    const audioStats = this.getAudioStats();
+
+    const report = {
+      sessionId: this.sessionId,
+      duration: uptime,
+      durationFormatted: this.formatDuration(Math.floor(uptime / 1000)),
+      metrics: {
+        audioChunksProcessed: this.performanceMetrics.audioChunksProcessed,
+        transcriptionsReceived: this.performanceMetrics.transcriptionsReceived,
+        reconnections: this.performanceMetrics.reconnections,
+        errors: this.performanceMetrics.errors.length
+      },
+      audioStats: audioStats,
+      efficiency: {
+        bandwidthSaved: audioStats.compressionRatio,
+        chunksSkipped: this.audioStats.silentChunksSkipped,
+        chunksSent: this.audioStats.chunksSent
+      }
+    };
+
+    console.log('[TranscriptionAgent] Performance Report:', report);
+    return report;
+  }
+
+  /**
+   * Get current performance state
+   * @returns {Object} Current performance state
+   */
+  getPerformanceState() {
+    return {
+      isStreaming: this.isStreaming,
+      sessionId: this.sessionId,
+      uptime: Date.now() - this.performanceMetrics.startTime,
+      metrics: this.performanceMetrics,
+      audioStats: this.getAudioStats(),
+      reconnectionState: {
+        attempts: this.reconnectAttempts,
+        isReconnecting: this.isReconnecting
+      }
+    };
   }
 }
 

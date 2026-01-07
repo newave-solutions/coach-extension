@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coach Extension - Live Monitor</title>
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <!-- Main Overlay Container -->
+  <div id="coach-overlay-container" class="overlay-container">
+    
+    <!-- Header -->
+    <div class="overlay-header">
+      <div class="header-content">
+        <div class="header-left">
+          <svg class="header-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+          <h1 class="header-title">Coach Co-Pilot</h1>
+        </div>
+        <div class="header-right">
+          <button id="collapse-all-btn" class="icon-btn" title="Collapse All Panels">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </button>
+          <button id="minimize-btn" class="icon-btn" title="Minimize (Ctrl+Shift+M)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Session Info Bar -->
+      <div class="session-info">
+        <div class="session-status">
+          <span class="status-indicator" id="status-indicator"></span>
+          <span class="status-text" id="status-text">Ready</span>
+        </div>
+        <div class="session-timer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="session-timer">00:00:00</span>
+        </div>
+        <div class="session-platform">
+          <span id="platform-name">Unknown</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="overlay-content">
+      
+      <!-- Panel 1: Live Transcription -->
+      <div class="panel transcription-panel" id="transcription-panel">
+        <div class="panel-header" data-panel="transcription">
+          <div class="panel-title">
+            <svg class="panel-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+            <span>Live Transcription</span>
+          </div>
+          <div class="panel-actions">
+            <span class="transcript-count" id="transcript-count">0 lines</span>
+            <button class="panel-toggle" data-panel="transcription">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content" id="transcription-content">
+          <div class="transcription-feed" id="transcription-feed">
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              </svg>
+              <p>Waiting for audio...</p>
+              <p class="hint">Click "Start" to begin monitoring</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Medical Terms -->
+      <div class="panel medical-terms-panel" id="medical-terms-panel">
+        <div class="panel-header" data-panel="medical-terms">
+          <div class="panel-title">
+            <svg class="panel-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span>Medical Terms</span>
+          </div>
+          <div class="panel-actions">
+            <span class="terms-count" id="terms-count">0 terms</span>
+            <button class="panel-toggle" data-panel="medical-terms">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content" id="medical-terms-content">
+          <div class="medical-terms-feed" id="medical-terms-feed">
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              <p>No medical terms detected yet</p>
+              <p class="hint">Terms will appear automatically</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 3: Live Metrics -->
+      <div class="panel metrics-panel" id="metrics-panel">
+        <div class="panel-header" data-panel="metrics">
+          <div class="panel-title">
+            <svg class="panel-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Live Metrics</span>
+          </div>
+          <div class="panel-actions">
+            <span class="last-update" id="last-update">Not started</span>
+            <button class="panel-toggle" data-panel="metrics">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content" id="metrics-content">
+          <div class="metrics-grid">
+            
+            <!-- Overall Score -->
+            <div class="metric-card overall-score">
+              <div class="metric-header">
+                <span class="metric-label">Overall Score</span>
+              </div>
+              <div class="metric-value-large">
+                <span id="overall-score">--</span>
+                <span class="metric-unit">/100</span>
+              </div>
+              <div class="metric-interpretation" id="overall-interpretation">
+                Not available
+              </div>
+            </div>
+
+            <!-- WPM -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Speed (WPM)</span>
+              </div>
+              <div class="metric-value">
+                <span id="wpm-value">--</span>
+                <span class="metric-unit">wpm</span>
+              </div>
+              <div class="metric-target">Target: 85-95</div>
+            </div>
+
+            <!-- Fluency -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Fluency</span>
+              </div>
+              <div class="metric-value">
+                <span id="fluency-score">--</span>
+              </div>
+              <div class="metric-bar">
+                <div class="metric-bar-fill" id="fluency-bar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Accuracy -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Accuracy</span>
+              </div>
+              <div class="metric-value">
+                <span id="accuracy-score">--</span>
+              </div>
+              <div class="metric-bar">
+                <div class="metric-bar-fill" id="accuracy-bar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Grammar -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Grammar</span>
+              </div>
+              <div class="metric-value">
+                <span id="grammar-score">--</span>
+              </div>
+              <div class="metric-bar">
+                <div class="metric-bar-fill" id="grammar-bar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Professional Conduct -->
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Professional</span>
+              </div>
+              <div class="metric-value">
+                <span id="professional-score">--</span>
+              </div>
+              <div class="metric-bar">
+                <div class="metric-bar-fill" id="professional-bar" style="width: 0%"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Issues Summary -->
+          <div class="issues-summary" id="issues-summary" style="display: none;">
+            <div class="issues-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <span>Live Issues Detected</span>
+            </div>
+            <div class="issues-list" id="issues-list">
+              <!-- Issues will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer / Controls -->
+    <div class="overlay-footer">
+      <div class="footer-stats">
+        <div class="stat">
+          <span class="stat-label">Words:</span>
+          <span class="stat-value" id="total-words">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Terms:</span>
+          <span class="stat-value" id="total-terms">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Session:</span>
+          <span class="stat-value" id="session-id">N/A</span>
+        </div>
+      </div>
+      <button id="view-dashboard-btn" class="btn-primary" style="display: none;">
+        View Performance Report
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Minimized State -->
+  <div id="minimized-indicator" class="minimized-indicator" style="display: none;">
+    <div class="minimized-content">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+      </svg>
+      <span class="minimized-timer" id="minimized-timer">00:00:00</span>
+      <button id="restore-btn" class="icon-btn" title="Restore (Ctrl+Shift+M)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Initializing agents...</p>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="overlay.js"></script>
+</body>
+</html>
