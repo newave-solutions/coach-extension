@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Medical Interpreter Co-Pilot",
+  "version": "1.0.0",
+  "description": "Real-time AI assistance for medical interpreters with transcription, terminology translation, and performance evaluation",
+  
+  "permissions": [
+    "tabCapture",
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://speech.googleapis.com/*",
+    "https://translation.googleapis.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["ui/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "ui/*.html",
+        "ui/*.css",
+        "ui/*.js",
+        "agents/*.js",
+        "utils/*.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  
+  "action": {
+    "default_popup": "ui/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
