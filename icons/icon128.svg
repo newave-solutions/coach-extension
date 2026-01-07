@@ -1,0 +1,37 @@
+<!-- SVG Placeholder Icon - 128x128 -->
+<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#grad)" />
+  
+  <!-- Microphone icon -->
+  <g transform="translate(64, 64)">
+    <!-- Microphone body -->
+    <rect x="-12" y="-35" width="24" height="40" rx="12" fill="white" />
+    
+    <!-- Microphone stand -->
+    <line x1="0" y1="5" x2="0" y2="30" stroke="white" stroke-width="4" stroke-linecap="round" />
+    
+    <!-- Base -->
+    <line x1="-15" y1="30" x2="15" y2="30" stroke="white" stroke-width="4" stroke-linecap="round" />
+    
+    <!-- Sound wave left -->
+    <path d="M -30,-10 Q -35,-10 -35,0 Q -35,10 -30,10" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" />
+    
+    <!-- Sound wave right -->
+    <path d="M 30,-10 Q 35,-10 35,0 Q 35,10 30,10" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" />
+  </g>
+  
+  <!-- Plus sign for medical context -->
+  <g transform="translate(100, 28)">
+    <circle cx="0" cy="0" r="16" fill="white" />
+    <line x1="-8" y1="0" x2="8" y2="0" stroke="#667eea" stroke-width="3" stroke-linecap="round" />
+    <line x1="0" y1="-8" x2="0" y2="8" stroke="#667eea" stroke-width="3" stroke-linecap="round" />
+  </g>
+</svg>

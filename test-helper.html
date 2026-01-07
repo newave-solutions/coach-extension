@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coach Extension - Test Helper</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px;
+      background: #f9fafb;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    .section {
+      margin-bottom: 32px;
+      padding: 20px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #d1d5db;
+    }
+
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .output {
+      background: #1f2937;
+      color: #10b981;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+
+    .output .error {
+      color: #ef4444;
+    }
+
+    .output .info {
+      color: #3b82f6;
+    }
+
+    .note {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #92400e;
+      margin-top: 16px;
+    }
+
+    .code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #374151;
+    }
+
+    .instructions {
+      background: #dbeafe;
+      border: 1px solid #3b82f6;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .instructions h3 {
+      color: #1e40af;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .instructions ol {
+      margin-left: 20px;
+      color: #1e40af;
+    }
+
+    .instructions li {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Coach Extension Test Helper</h1>
+    <p class="subtitle">Manual testing tool for overlay functionality</p>
+
+    <div class="instructions">
+      <h3>How to Use</h3>
+      <ol>
+        <li>Make sure the extension is loaded in Chrome</li>
+        <li>Press <code class="code">Ctrl + Shift + M</code> to show the overlay</li>
+        <li>Click buttons below to simulate agent outputs</li>
+        <li>Watch the overlay update in real-time</li>
+        <li>Check the console below for status messages</li>
+      </ol>
+    </div>
+
+    <!-- Overlay Control -->
+    <div class="section">
+      <h2>📱 Overlay Control</h2>
+      <div class="button-group">
+        <button class="btn-primary" onclick="toggleOverlay()">Toggle Overlay (Ctrl+Shift+M)</button>
+        <button class="btn-secondary" onclick="checkExtension()">Check Extension Status</button>
+      </div>
+      <div class="note">
+        The overlay should appear on the right side of the screen. If not, check that the extension is loaded.
+      </div>
+    </div>
+
+    <!-- Session Control -->
+    <div class="section">
+      <h2>⏱️ Session Control</h2>
+      <div class="button-group">
+        <button class="btn-success" onclick="startSession()">Start Session</button>
+        <button class="btn-danger" onclick="stopSession()">Stop Session</button>
+        <button class="btn-secondary" onclick="updateTimer()">Update Timer (5 min)</button>
+      </div>
+    </div>
+
+    <!-- Test Transcriptions -->
+    <div class="section">
+      <h2>📝 Test Transcriptions</h2>
+      <div class="button-group">
+        <button class="btn-primary" onclick="sendTranscription('The patient has hypertension', 0.95)">
+          Send Transcription #1
+        </button>
+        <button class="btn-primary" onclick="sendTranscription('Blood pressure is 140 over 90', 0.92)">
+          Send Transcription #2
+        </button>
+        <button class="btn-primary" onclick="sendTranscription('I recommend taking medication daily', 0.88)">
+          Send Transcription #3
+        </button>
+        <button class="btn-secondary" onclick="sendMultipleTranscriptions()">
+          Send 5 Rapid Transcriptions
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Medical Terms -->
+    <div class="section">
+      <h2>🏥 Test Medical Terms</h2>
+      <div class="button-group">
+        <button class="btn-primary" onclick="sendMedicalTerm('hypertension')">
+          Hypertension
+        </button>
+        <button class="btn-primary" onclick="sendMedicalTerm('diabetes')">
+          Diabetes
+        </button>
+        <button class="btn-primary" onclick="sendMedicalTerm('pneumonia')">
+          Pneumonia
+        </button>
+        <button class="btn-secondary" onclick="sendMultipleTerms()">
+          Send 3 Terms
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Metrics -->
+    <div class="section">
+      <h2>📊 Test Metrics</h2>
+      <div class="button-group">
+        <button class="btn-success" onclick="sendMetrics(90, 88, 92, 87, 95)">
+          Excellent Scores
+        </button>
+        <button class="btn-primary" onclick="sendMetrics(82, 80, 78, 85, 83)">
+          Good Scores
+        </button>
+        <button class="btn-danger" onclick="sendMetrics(68, 72, 65, 70, 75)">
+          Needs Improvement
+        </button>
+        <button class="btn-secondary" onclick="animateScores()">
+          Animate Scores (80→95)
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Errors -->
+    <div class="section">
+      <h2>🚨 Test Errors</h2>
+      <div class="button-group">
+        <button class="btn-danger" onclick="sendError('Test error message', 'TestAgent', true)">
+          Recoverable Error
+        </button>
+        <button class="btn-danger" onclick="sendError('Fatal error occurred', 'TestAgent', false)">
+          Non-Recoverable Error
+        </button>
+      </div>
+    </div>
+
+    <!-- Console Output -->
+    <div class="section">
+      <h2>💻 Console Output</h2>
+      <div class="output" id="console"></div>
+    </div>
+  </div>
+
+  <script>
+    // Console logger
+    function log(message, type = 'info') {
+      const console = document.getElementById('console');
+      const time = new Date().toLocaleTimeString();
+      const className = type === 'error' ? 'error' : type === 'success' ? 'info' : '';
+      console.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+      console.scrollTop = console.scrollHeight;
+    }
+
+    // Check if extension is loaded
+    function checkExtension() {
+      log('Checking for extension...', 'info');
+      
+      // Try to send a message to background script
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        chrome.runtime.sendMessage({ action: 'GET_STATUS' }, (response) => {
+          if (chrome.runtime.lastError) {
+            log('❌ Extension not found or not loaded', 'error');
+            log('Go to chrome://extensions/ and load the extension', 'error');
+          } else {
+            log('✅ Extension is loaded!', 'success');
+            log(`Status: ${JSON.stringify(response)}`, 'info');
+          }
+        });
+      } else {
+        log('❌ Chrome extension API not available', 'error');
+      }
+    }
+
+    // Toggle overlay
+    function toggleOverlay() {
+      log('Triggering keyboard shortcut...', 'info');
+      const event = new KeyboardEvent('keydown', {
+        key: 'M',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+      log('Overlay should toggle (Ctrl+Shift+M)', 'success');
+    }
+
+    // Send message to overlay
+    function sendToOverlay(message) {
+      window.postMessage(message, '*');
+      log(`Sent: ${message.payload.type}`, 'success');
+    }
+
+    // Start session
+    function startSession() {
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'CALL_START',
+          data: {
+            sessionId: `test_${Date.now()}`,
+            platform: 'test-platform',
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Stop session
+    function stopSession() {
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'SESSION_COMPLETE',
+          data: {
+            sessionId: `test_${Date.now()}`,
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Update timer
+    function updateTimer() {
+      const duration = {
+        seconds: 300,
+        formatted: '00:05:00'
+      };
+      
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'TIMER_UPDATE',
+          data: { duration }
+        }
+      });
+    }
+
+    // Send transcription
+    function sendTranscription(text, confidence) {
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'TRANSCRIPTION',
+          data: {
+            text: text,
+            isFinal: true,
+            confidence: confidence,
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Send multiple transcriptions
+    function sendMultipleTranscriptions() {
+      const texts = [
+        'Hello, how are you feeling today?',
+        'Can you describe your symptoms?',
+        'When did this pain start?',
+        'Have you taken any medication?',
+        'Let me check your blood pressure.'
+      ];
+      
+      texts.forEach((text, i) => {
+        setTimeout(() => {
+          sendTranscription(text, 0.9 + Math.random() * 0.1);
+        }, i * 1000);
+      });
+      
+      log('Sending 5 transcriptions over 5 seconds...', 'info');
+    }
+
+    // Send medical term
+    function sendMedicalTerm(term) {
+      const terms = {
+        hypertension: {
+          translation: 'hipertensión',
+          phonetics: 'hy-per-TEN-shun',
+          definition: 'High blood pressure'
+        },
+        diabetes: {
+          translation: 'diabetes',
+          phonetics: 'dy-uh-BEE-teez',
+          definition: 'A chronic condition affecting blood sugar'
+        },
+        pneumonia: {
+          translation: 'neumonía',
+          phonetics: 'new-MO-nyuh',
+          definition: 'Inflammation of the lungs'
+        }
+      };
+      
+      const data = terms[term];
+      
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'MEDICAL_TERM',
+          data: {
+            original: term,
+            translation: data.translation,
+            phonetics: data.phonetics,
+            definition: data.definition,
+            context: `The patient has ${term}`,
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Send multiple terms
+    function sendMultipleTerms() {
+      ['hypertension', 'diabetes', 'pneumonia'].forEach((term, i) => {
+        setTimeout(() => {
+          sendMedicalTerm(term);
+        }, i * 1500);
+      });
+      
+      log('Sending 3 medical terms...', 'info');
+    }
+
+    // Send metrics
+    function sendMetrics(overall, fluency, accuracy, grammar, professional) {
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'METRICS_UPDATE',
+          data: {
+            metrics: {
+              overallScore: overall,
+              averageWPM: 90,
+              fluency: { score: fluency },
+              accuracy: { score: accuracy },
+              grammar: { score: grammar },
+              professionalConduct: { score: professional }
+            },
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Animate scores
+    function animateScores() {
+      log('Animating scores from 80 to 95...', 'info');
+      let score = 80;
+      const interval = setInterval(() => {
+        sendMetrics(score, score - 2, score + 2, score - 3, score + 1);
+        score += 3;
+        if (score > 95) {
+          clearInterval(interval);
+          log('Animation complete!', 'success');
+        }
+      }, 500);
+    }
+
+    // Send error
+    function sendError(message, source, recoverable) {
+      sendToOverlay({
+        action: 'AGENT_OUTPUT',
+        payload: {
+          type: 'ERROR',
+          data: {
+            message: message,
+            source: source,
+            recoverable: recoverable,
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
+
+    // Initial log
+    log('Test helper loaded. Ready to test!', 'success');
+    log('Press Ctrl+Shift+M to show overlay', 'info');
+  </script>
+</body>
+</html>

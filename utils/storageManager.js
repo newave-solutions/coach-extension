@@ -19,7 +19,7 @@ export const StorageKeys = {
   TARGET_LANGUAGE: 'targetLanguage',
   SOURCE_LANGUAGE: 'sourceLanguage',
   USER_PREFERENCES: 'userPreferences',
-  
+
   // Local storage (not synced)
   SESSION_HISTORY: 'sessionHistory',
   PERFORMANCE_REPORTS: 'performanceReports',
@@ -174,7 +174,7 @@ export async function loadApiKeys() {
     StorageKeys.GOOGLE_API_KEY,
     StorageKeys.ANTHROPIC_API_KEY
   ]);
-  
+
   return {
     googleCloud: data[StorageKeys.GOOGLE_API_KEY] || '',
     anthropic: data[StorageKeys.ANTHROPIC_API_KEY] || ''
@@ -205,7 +205,7 @@ export async function loadPreferences() {
     StorageKeys.SOURCE_LANGUAGE,
     StorageKeys.USER_PREFERENCES
   ]);
-  
+
   return {
     targetLanguage: data[StorageKeys.TARGET_LANGUAGE] || 'es',
     sourceLanguage: data[StorageKeys.SOURCE_LANGUAGE] || 'en-US',
@@ -220,7 +220,7 @@ export async function loadPreferences() {
  */
 export async function savePreferences(prefs) {
   const toSave = {};
-  
+
   if (prefs.targetLanguage) {
     toSave[StorageKeys.TARGET_LANGUAGE] = prefs.targetLanguage;
   }
@@ -230,7 +230,7 @@ export async function savePreferences(prefs) {
   if (prefs.preferences) {
     toSave[StorageKeys.USER_PREFERENCES] = prefs.preferences;
   }
-  
+
   await setSyncStorage(toSave);
 }
 
@@ -243,7 +243,7 @@ export async function saveSession(session) {
   // Get existing history
   const data = await getLocalStorage(StorageKeys.SESSION_HISTORY);
   const history = data[StorageKeys.SESSION_HISTORY] || [];
-  
+
   // Add new session
   history.push({
     sessionId: session.sessionId,
@@ -252,10 +252,10 @@ export async function saveSession(session) {
     overallScore: session.overallScore || 0,
     totalWords: session.totalWords || 0
   });
-  
+
   // Keep only last 50 sessions
   const trimmedHistory = history.slice(-50);
-  
+
   // Save back
   await setLocalStorage({
     [StorageKeys.SESSION_HISTORY]: trimmedHistory
@@ -270,7 +270,7 @@ export async function saveSession(session) {
 export async function loadSessionHistory(limit = 50) {
   const data = await getLocalStorage(StorageKeys.SESSION_HISTORY);
   const history = data[StorageKeys.SESSION_HISTORY] || [];
-  
+
   return history.slice(-limit);
 }
 
@@ -283,12 +283,12 @@ export async function loadSessionHistory(limit = 50) {
 export async function savePerformanceReport(sessionId, report) {
   const data = await getLocalStorage(StorageKeys.PERFORMANCE_REPORTS);
   const reports = data[StorageKeys.PERFORMANCE_REPORTS] || {};
-  
+
   reports[sessionId] = {
     report,
     savedAt: new Date().toISOString()
   };
-  
+
   await setLocalStorage({
     [StorageKeys.PERFORMANCE_REPORTS]: reports
   });
@@ -302,7 +302,7 @@ export async function savePerformanceReport(sessionId, report) {
 export async function loadPerformanceReport(sessionId) {
   const data = await getLocalStorage(StorageKeys.PERFORMANCE_REPORTS);
   const reports = data[StorageKeys.PERFORMANCE_REPORTS] || {};
-  
+
   return reports[sessionId]?.report || null;
 }
 
@@ -317,7 +317,7 @@ export async function saveMedicalTermsCache(cache) {
   cache.forEach((value, key) => {
     cacheObject[key] = value;
   });
-  
+
   await setLocalStorage({
     [StorageKeys.MEDICAL_TERMS_CACHE]: cacheObject
   });
@@ -330,13 +330,13 @@ export async function saveMedicalTermsCache(cache) {
 export async function loadMedicalTermsCache() {
   const data = await getLocalStorage(StorageKeys.MEDICAL_TERMS_CACHE);
   const cacheObject = data[StorageKeys.MEDICAL_TERMS_CACHE] || {};
-  
+
   // Convert object back to Map
   const cache = new Map();
   Object.entries(cacheObject).forEach(([key, value]) => {
     cache.set(key, value);
   });
-  
+
   return cache;
 }
 
@@ -368,7 +368,7 @@ export async function cleanupOldData() {
   const now = Date.now();
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
   const ninetyDays = 90 * 24 * 60 * 60 * 1000;
-  
+
   // Clean session history
   const historyData = await getLocalStorage(StorageKeys.SESSION_HISTORY);
   const history = historyData[StorageKeys.SESSION_HISTORY] || [];
@@ -376,7 +376,7 @@ export async function cleanupOldData() {
     const sessionTime = new Date(session.timestamp).getTime();
     return (now - sessionTime) < thirtyDays;
   });
-  
+
   // Clean performance reports
   const reportsData = await getLocalStorage(StorageKeys.PERFORMANCE_REPORTS);
   const reports = reportsData[StorageKeys.PERFORMANCE_REPORTS] || {};
@@ -387,13 +387,13 @@ export async function cleanupOldData() {
       recentReports[sessionId] = data;
     }
   });
-  
+
   // Save cleaned data
   await setLocalStorage({
     [StorageKeys.SESSION_HISTORY]: recentSessions,
     [StorageKeys.PERFORMANCE_REPORTS]: recentReports
   });
-  
+
   console.log('[StorageManager] Cleaned up old data');
 }
 
@@ -405,6 +405,43 @@ export function onStorageChanged(callback) {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     callback(changes, areaName);
   });
+}
+
+/**
+ * Save complete session data
+ * @param {string} sessionId - Session ID
+ * @param {object} sessionData - Complete session data
+ * @returns {Promise<void>}
+ */
+export async function saveSessionData(sessionId, sessionData) {
+  // Get existing call sessions
+  const data = await getLocalStorage('callSessions');
+  const sessions = data.callSessions || {};
+
+  // Add/update this session
+  sessions[sessionId] = {
+    ...sessionData,
+    savedAt: new Date().toISOString()
+  };
+
+  // Save back to storage
+  await setLocalStorage({
+    callSessions: sessions
+  });
+
+  console.log(`[StorageManager] Session data saved: ${sessionId}`);
+}
+
+/**
+ * Load session data
+ * @param {string} sessionId - Session ID
+ * @returns {Promise<object|null>} Session data or null if not found
+ */
+export async function loadSessionData(sessionId) {
+  const data = await getLocalStorage('callSessions');
+  const sessions = data.callSessions || {};
+
+  return sessions[sessionId] || null;
 }
 
 /**
@@ -438,6 +475,8 @@ if (typeof module !== 'undefined' && module.exports) {
     loadPerformanceReport,
     saveMedicalTermsCache,
     loadMedicalTermsCache,
+    saveSessionData,
+    loadSessionData,
     getStorageUsage,
     cleanupOldData,
     onStorageChanged,

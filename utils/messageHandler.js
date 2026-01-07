@@ -18,19 +18,38 @@ export const MessageTypes = {
   STOP_AGENTS: 'STOP_AGENTS',
   GET_STATUS: 'GET_STATUS',
   UPDATE_CONFIG: 'UPDATE_CONFIG',
-  
+
   // Agent outputs
   AGENT_OUTPUT: 'AGENT_OUTPUT',
-  
+
   // System events
   SYSTEM_EVENT: 'SYSTEM_EVENT',
-  
+
   // Error handling
-  ERROR: 'ERROR'
+  ERROR: 'ERROR',
+
+  // Nested structures for agent orchestrator
+  EVENTS: {
+    CALL_START: 'CALL_START',
+    CALL_STOP: 'CALL_STOP',
+    AGENTS_STARTED: 'AGENTS_STARTED',
+    SESSION_COMPLETE: 'SESSION_COMPLETE',
+    TIMER_UPDATE: 'TIMER_UPDATE',
+    ERROR: 'ERROR',
+    STATUS_UPDATE: 'STATUS_UPDATE',
+    CRITICAL_ALERT: 'CRITICAL_ALERT'
+  },
+
+  AGENT_OUTPUTS: {
+    TRANSCRIPTION: 'TRANSCRIPTION',
+    MEDICAL_TERM: 'MEDICAL_TERM',
+    METRICS_UPDATE: 'METRICS_UPDATE',
+    SESSION_COMPLETE: 'SESSION_COMPLETE'
+  }
 };
 
 /**
- * Output types from agents
+ * Output types from agents (for backward compatibility)
  */
 export const OutputTypes = {
   TRANSCRIPTION: 'TRANSCRIPTION',
@@ -92,14 +111,23 @@ export async function sendToTab(tabId, message) {
  */
 export async function broadcastToAllTabs(message) {
   const tabs = await chrome.tabs.query({});
-  
-  const promises = tabs.map(tab => 
+
+  const promises = tabs.map(tab =>
     sendToTab(tab.id, message).catch(() => {
       // Ignore errors for tabs without content script
     })
   );
-  
+
   await Promise.all(promises);
+}
+
+/**
+ * Send message (alias for broadcastToAllTabs for backward compatibility)
+ * @param {object} message - Message to send
+ * @returns {Promise<void>}
+ */
+export async function sendMessage(message) {
+  return broadcastToAllTabs(message);
 }
 
 /**
@@ -164,16 +192,16 @@ export async function sendError(source, message, recoverable = true) {
 export function createMessageListener(handlers) {
   return (message, sender, sendResponse) => {
     const handler = handlers[message.action];
-    
+
     if (!handler) {
       console.warn(`[MessageHandler] No handler for action: ${message.action}`);
       sendResponse({ error: 'Unknown action' });
       return false;
     }
-    
+
     // Handle async handlers
     const result = handler(message, sender);
-    
+
     if (result instanceof Promise) {
       result
         .then(response => sendResponse(response))
@@ -230,17 +258,17 @@ export function validateMessage(message, requiredFields = []) {
   if (!message || typeof message !== 'object') {
     return false;
   }
-  
+
   if (!message.action) {
     return false;
   }
-  
+
   for (const field of requiredFields) {
     if (!(field in message)) {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -253,14 +281,14 @@ export function validateMessage(message, requiredFields = []) {
 export function createDebouncedSender(sendFunction, delay = 2000) {
   let timeoutId = null;
   let lastMessage = null;
-  
-  return function(type, data) {
+
+  return function (type, data) {
     lastMessage = { type, data };
-    
+
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
-    
+
     timeoutId = setTimeout(() => {
       sendFunction(lastMessage.type, lastMessage.data);
       timeoutId = null;
@@ -291,6 +319,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sendToBackground,
     sendToTab,
     broadcastToAllTabs,
+    sendMessage,
     sendAgentOutput,
     sendSystemEvent,
     sendError,
