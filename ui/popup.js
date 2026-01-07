@@ -14,19 +14,21 @@ const elements = {
   sessionRow: document.getElementById('session-row'),
   sessionInfo: document.getElementById('session-info'),
   apiKeysStatus: document.getElementById('api-keys-status'),
-  
+
   // Form inputs
   googleApiKey: document.getElementById('google-api-key'),
   anthropicApiKey: document.getElementById('anthropic-api-key'),
   sourceLanguage: document.getElementById('source-language'),
   targetLanguage: document.getElementById('target-language'),
-  
+
   // Buttons
   saveBtn: document.getElementById('save-btn'),
   testBtn: document.getElementById('test-btn'),
+  startBtn: document.getElementById('start-btn'),
   stopBtn: document.getElementById('stop-btn'),
+  startButtons: document.getElementById('start-buttons'),
   controlButtons: document.getElementById('control-buttons'),
-  
+
   // Messages
   messageContainer: document.getElementById('message-container')
 };
@@ -36,19 +38,19 @@ const elements = {
  */
 async function initialize() {
   console.log('[Popup] Initializing...');
-  
+
   // Load existing settings
   await loadSettings();
-  
+
   // Check current status
   await updateStatus();
-  
+
   // Set up event listeners
   setupEventListeners();
-  
+
   // Poll status every 2 seconds
   setInterval(updateStatus, 2000);
-  
+
   console.log('[Popup] Initialized');
 }
 
@@ -66,7 +68,7 @@ async function loadSettings() {
         });
       });
     });
-    
+
     // Load preferences
     const preferences = await new Promise((resolve) => {
       chrome.storage.sync.get(['sourceLanguage', 'targetLanguage'], (items) => {
@@ -76,21 +78,21 @@ async function loadSettings() {
         });
       });
     });
-    
+
     // Set form values (masked for security)
     if (apiKeys.google) {
       elements.googleApiKey.value = maskApiKey(apiKeys.google);
       elements.googleApiKey.dataset.actual = apiKeys.google;
     }
-    
+
     if (apiKeys.anthropic) {
       elements.anthropicApiKey.value = maskApiKey(apiKeys.anthropic);
       elements.anthropicApiKey.dataset.actual = apiKeys.anthropic;
     }
-    
+
     elements.sourceLanguage.value = preferences.source;
     elements.targetLanguage.value = preferences.target;
-    
+
     // Update API keys status
     if (apiKeys.google) {
       elements.apiKeysStatus.textContent = 'Configured ✓';
@@ -99,7 +101,7 @@ async function loadSettings() {
       elements.apiKeysStatus.textContent = 'Not configured';
       elements.apiKeysStatus.style.color = '#ef4444';
     }
-    
+
   } catch (error) {
     console.error('[Popup] Failed to load settings:', error);
     showMessage('Failed to load settings', 'error');
@@ -112,32 +114,32 @@ async function loadSettings() {
 async function saveSettings() {
   try {
     showMessage('Saving...', 'info');
-    
+
     // Get values
     let googleApiKey = elements.googleApiKey.value.trim();
     let anthropicApiKey = elements.anthropicApiKey.value.trim();
-    
+
     // If value is masked, use actual value from dataset
     if (googleApiKey && googleApiKey.includes('•')) {
       googleApiKey = elements.googleApiKey.dataset.actual || '';
     }
-    
+
     if (anthropicApiKey && anthropicApiKey.includes('•')) {
       anthropicApiKey = elements.anthropicApiKey.dataset.actual || '';
     }
-    
+
     const sourceLanguage = elements.sourceLanguage.value;
     const targetLanguage = elements.targetLanguage.value;
-    
+
     // Validate
     if (!googleApiKey) {
       showMessage('Google Cloud API Key is required', 'error');
       elements.googleApiKey.classList.add('error');
       return;
     }
-    
+
     elements.googleApiKey.classList.remove('error');
-    
+
     // Save to storage
     await new Promise((resolve) => {
       chrome.storage.sync.set({
@@ -147,23 +149,23 @@ async function saveSettings() {
         targetLanguage: targetLanguage
       }, resolve);
     });
-    
+
     // Update dataset
     elements.googleApiKey.dataset.actual = googleApiKey;
     elements.anthropicApiKey.dataset.actual = anthropicApiKey;
-    
+
     // Mask displayed values
     elements.googleApiKey.value = maskApiKey(googleApiKey);
     elements.anthropicApiKey.value = maskApiKey(anthropicApiKey);
-    
+
     // Update status
     elements.apiKeysStatus.textContent = 'Configured ✓';
     elements.apiKeysStatus.style.color = '#10b981';
-    
+
     showMessage('Settings saved successfully!', 'success');
-    
+
     console.log('[Popup] Settings saved');
-    
+
   } catch (error) {
     console.error('[Popup] Failed to save settings:', error);
     showMessage('Failed to save settings', 'error');
@@ -177,33 +179,33 @@ async function testApiKeys() {
   try {
     showMessage('Testing API connections...', 'info');
     elements.testBtn.disabled = true;
-    
+
     // Get API keys
     const apiKeys = await new Promise((resolve) => {
       chrome.storage.sync.get(['googleCloudApiKey', 'anthropicApiKey'], (items) => {
         resolve(items);
       });
     });
-    
+
     if (!apiKeys.googleCloudApiKey) {
       showMessage('Please configure Google Cloud API Key first', 'error');
       elements.testBtn.disabled = false;
       return;
     }
-    
+
     // Test Google Cloud API (simple validation)
     const googleTest = await testGoogleCloudApi(apiKeys.googleCloudApiKey);
-    
+
     if (!googleTest.success) {
       showMessage(`Google Cloud API test failed: ${googleTest.error}`, 'error');
       elements.testBtn.disabled = false;
       return;
     }
-    
+
     // Test Anthropic API if configured
     if (apiKeys.anthropicApiKey) {
       const anthropicTest = await testAnthropicApi(apiKeys.anthropicApiKey);
-      
+
       if (!anthropicTest.success) {
         showMessage(`Anthropic API test failed: ${anthropicTest.error}`, 'info');
       } else {
@@ -212,9 +214,9 @@ async function testApiKeys() {
     } else {
       showMessage('Google Cloud API key is valid! ✓', 'success');
     }
-    
+
     elements.testBtn.disabled = false;
-    
+
   } catch (error) {
     console.error('[Popup] API test failed:', error);
     showMessage('API test failed', 'error');
@@ -236,14 +238,14 @@ async function testGoogleCloudApi(apiKey) {
         error: 'Invalid API key format'
       };
     }
-    
+
     // In a real implementation, you would make a test API call here
     // For now, just validate the format
-    
+
     return {
       success: true
     };
-    
+
   } catch (error) {
     return {
       success: false,
@@ -265,11 +267,11 @@ async function testAnthropicApi(apiKey) {
         error: 'Invalid API key format'
       };
     }
-    
+
     return {
       success: true
     };
-    
+
   } catch (error) {
     return {
       success: false,
@@ -284,35 +286,94 @@ async function testAnthropicApi(apiKey) {
 async function updateStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'GET_STATUS' });
-    
+
     if (response && response.isRunning) {
       // Session is active
       elements.statusIndicator.classList.add('active');
       elements.statusIndicator.classList.remove('inactive');
       elements.statusText.textContent = 'Active';
-      
+
       // Show session info
       elements.sessionRow.style.display = 'flex';
+      elements.startButtons.style.display = 'none';
       elements.controlButtons.style.display = 'flex';
-      
+
       // Update session time if available
       if (response.orchestrator && response.orchestrator.uptime) {
         const uptime = formatDuration(response.orchestrator.uptime);
         elements.sessionInfo.textContent = uptime;
       }
-      
+
     } else {
       // No active session
       elements.statusIndicator.classList.remove('active');
       elements.statusIndicator.classList.add('inactive');
       elements.statusText.textContent = 'Ready';
-      
+
       elements.sessionRow.style.display = 'none';
       elements.controlButtons.style.display = 'none';
+
+      // Show start button if API keys are configured
+      if (response && response.hasApiKeys) {
+        elements.startButtons.style.display = 'flex';
+      } else {
+        elements.startButtons.style.display = 'none';
+      }
     }
-    
+
   } catch (error) {
     console.error('[Popup] Failed to update status:', error);
+  }
+}
+
+/**
+ * Start current session
+ */
+async function startSession() {
+  try {
+    showMessage('Starting session...', 'info');
+    elements.startBtn.disabled = true;
+
+    // Get current tab to detect platform
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTab = tabs[0];
+    let platform = 'unknown';
+
+    if (currentTab && currentTab.url) {
+      const url = currentTab.url;
+      if (url.includes('meet.google.com')) {
+        platform = 'google-meet';
+      } else if (url.includes('zoom.us')) {
+        platform = 'zoom';
+      } else if (url.includes('teams.microsoft.com')) {
+        platform = 'microsoft-teams';
+      }
+    }
+
+    // Get current configuration
+    const config = {
+      // API keys will be loaded from background
+    };
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'START_AGENTS',
+      config: config,
+      platform: platform
+    });
+
+    if (response && response.success) {
+      showMessage('Session started successfully!', 'success');
+      await updateStatus();
+      elements.startBtn.disabled = false; // Re-enable for next time
+    } else {
+      showMessage(`Failed to start session: ${response?.error || 'Unknown error'}`, 'error');
+      elements.startBtn.disabled = false;
+    }
+
+  } catch (error) {
+    console.error('[Popup] Failed to start session:', error);
+    showMessage('Failed to start session', 'error');
+    elements.startBtn.disabled = false;
   }
 }
 
@@ -323,18 +384,18 @@ async function stopSession() {
   try {
     showMessage('Stopping session...', 'info');
     elements.stopBtn.disabled = true;
-    
+
     const response = await chrome.runtime.sendMessage({ action: 'STOP_AGENTS' });
-    
+
     if (response && response.success) {
       showMessage('Session stopped successfully', 'success');
       await updateStatus();
     } else {
       showMessage('Failed to stop session', 'error');
     }
-    
+
     elements.stopBtn.disabled = false;
-    
+
   } catch (error) {
     console.error('[Popup] Failed to stop session:', error);
     showMessage('Failed to stop session', 'error');
@@ -348,38 +409,41 @@ async function stopSession() {
 function setupEventListeners() {
   // Save button
   elements.saveBtn.addEventListener('click', saveSettings);
-  
+
   // Test button
   elements.testBtn.addEventListener('click', testApiKeys);
-  
+
+  // Start button
+  elements.startBtn.addEventListener('click', startSession);
+
   // Stop button
   elements.stopBtn.addEventListener('click', stopSession);
-  
+
   // Clear error state on input
   elements.googleApiKey.addEventListener('input', () => {
     elements.googleApiKey.classList.remove('error');
   });
-  
+
   // Clear masked value on focus (for editing)
   elements.googleApiKey.addEventListener('focus', (e) => {
     if (e.target.value.includes('•') && e.target.dataset.actual) {
       e.target.value = e.target.dataset.actual;
     }
   });
-  
+
   elements.anthropicApiKey.addEventListener('focus', (e) => {
     if (e.target.value.includes('•') && e.target.dataset.actual) {
       e.target.value = e.target.dataset.actual;
     }
   });
-  
+
   // Re-mask on blur if unchanged
   elements.googleApiKey.addEventListener('blur', (e) => {
     if (e.target.dataset.actual && e.target.value === e.target.dataset.actual) {
       e.target.value = maskApiKey(e.target.value);
     }
   });
-  
+
   elements.anthropicApiKey.addEventListener('blur', (e) => {
     if (e.target.dataset.actual && e.target.value === e.target.dataset.actual) {
       e.target.value = maskApiKey(e.target.value);
@@ -395,7 +459,7 @@ function setupEventListeners() {
 function showMessage(message, type = 'info') {
   elements.messageContainer.textContent = message;
   elements.messageContainer.className = `message ${type} show`;
-  
+
   // Auto-hide after 3 seconds
   setTimeout(() => {
     elements.messageContainer.classList.remove('show');
@@ -409,11 +473,11 @@ function showMessage(message, type = 'info') {
  */
 function maskApiKey(key) {
   if (!key || key.length < 8) return key;
-  
+
   const start = key.substring(0, 4);
   const end = key.substring(key.length - 4);
   const masked = '•'.repeat(Math.min(20, key.length - 8));
-  
+
   return `${start}${masked}${end}`;
 }
 
@@ -427,7 +491,7 @@ function formatDuration(ms) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
