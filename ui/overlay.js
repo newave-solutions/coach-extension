@@ -144,21 +144,26 @@ function handleKeyboard(e) {
  * @param {MessageEvent} event - Message event
  */
 function handleMessage(event) {
-  const message = event.data;
+  try {
+    const message = event.data;
 
-  if (!message || !message.action) return;
+    if (!message || !message.action) return;
 
-  console.log('[Overlay] Message received:', message.action);
+    console.log('[Overlay] Message received:', message.action);
 
-  switch (message.action) {
-    case 'AGENT_OUTPUT':
-      handleAgentOutput(message.payload);
-      break;
-    case 'STATUS_UPDATE':
-      updateStatus(message.payload);
-      break;
-    default:
-      console.log('[Overlay] Unknown message action:', message.action);
+    switch (message.action) {
+      case 'AGENT_OUTPUT':
+        handleAgentOutput(message.payload);
+        break;
+      case 'STATUS_UPDATE':
+        updateStatus(message.payload);
+        break;
+      default:
+        console.log('[Overlay] Unknown message action:', message.action);
+    }
+  } catch (error) {
+    console.error('[Overlay] Error handling message:', error);
+    showToast('Failed to process update', 'error');
   }
 }
 
@@ -167,32 +172,37 @@ function handleMessage(event) {
  * @param {Object} payload - Agent output payload
  */
 function handleAgentOutput(payload) {
-  const { type, data } = payload;
+  try {
+    const { type, data } = payload;
 
-  switch (type) {
-    case 'TRANSCRIPTION':
-      handleTranscription(data);
-      break;
-    case 'MEDICAL_TERM':
-      handleMedicalTerm(data);
-      break;
-    case 'METRICS_UPDATE':
-      handleMetricsUpdate(data);
-      break;
-    case 'TIMER_UPDATE':
-      handleTimerUpdate(data);
-      break;
-    case 'CALL_START':
-      handleCallStart(data);
-      break;
-    case 'SESSION_COMPLETE':
-      handleSessionComplete(data);
-      break;
-    case 'ERROR':
-      handleError(data);
-      break;
-    default:
-      console.log('[Overlay] Unknown agent output type:', type);
+    switch (type) {
+      case 'TRANSCRIPTION':
+        handleTranscription(data);
+        break;
+      case 'MEDICAL_TERM':
+        handleMedicalTerm(data);
+        break;
+      case 'METRICS_UPDATE':
+        handleMetricsUpdate(data);
+        break;
+      case 'TIMER_UPDATE':
+        handleTimerUpdate(data);
+        break;
+      case 'CALL_START':
+        handleCallStart(data);
+        break;
+      case 'SESSION_COMPLETE':
+        handleSessionComplete(data);
+        break;
+      case 'ERROR':
+        handleError(data);
+        break;
+      default:
+        console.log('[Overlay] Unknown agent output type:', type);
+    }
+  } catch (error) {
+    console.error('[Overlay] Error handling agent output:', error);
+    showToast(`Failed to display ${payload.type}`, 'error');
   }
 }
 
@@ -201,42 +211,47 @@ function handleAgentOutput(payload) {
  * @param {Object} data - Transcription data
  */
 function handleTranscription(data) {
-  const { text, isFinal, confidence, timestamp } = data;
+  try {
+    const { text, isFinal, confidence, timestamp } = data;
 
-  // Only display final transcriptions
-  if (!isFinal) return;
+    // Only display final transcriptions
+    if (!isFinal) return;
 
-  // Remove empty state if first transcript
-  if (state.transcriptCount === 0) {
-    elements.transcriptionFeed.innerHTML = '';
+    // Remove empty state if first transcript
+    if (state.transcriptCount === 0) {
+      elements.transcriptionFeed.innerHTML = '';
+    }
+
+    // Create transcript item
+    const item = document.createElement('div');
+    item.className = 'transcript-item';
+    item.innerHTML = `
+      <div class="transcript-time">${formatTime(timestamp)}</div>
+      <div class="transcript-text">${escapeHtml(text)}</div>
+      <div class="transcript-meta">
+        <span class="confidence" data-confidence="${confidence}">
+          ${(confidence * 100).toFixed(0)}% confidence
+        </span>
+      </div>
+    `;
+
+    // Add to feed
+    elements.transcriptionFeed.appendChild(item);
+
+    // Auto-scroll to bottom
+    elements.transcriptionFeed.scrollTop = elements.transcriptionFeed.scrollHeight;
+
+    // Update count
+    state.transcriptCount++;
+    elements.transcriptCount.textContent = `${state.transcriptCount} lines`;
+
+    // Update total words estimate
+    state.totalWords += text.split(/\s+/).length;
+    elements.totalWordsDisplay.textContent = state.totalWords;
+  } catch (error) {
+    console.error('[Overlay] Error displaying transcription:', error);
+    // Don't show toast for every transcription error (too frequent)
   }
-
-  // Create transcript item
-  const item = document.createElement('div');
-  item.className = 'transcript-item';
-  item.innerHTML = `
-    <div class="transcript-time">${formatTime(timestamp)}</div>
-    <div class="transcript-text">${escapeHtml(text)}</div>
-    <div class="transcript-meta">
-      <span class="confidence" data-confidence="${confidence}">
-        ${(confidence * 100).toFixed(0)}% confidence
-      </span>
-    </div>
-  `;
-
-  // Add to feed
-  elements.transcriptionFeed.appendChild(item);
-
-  // Auto-scroll to bottom
-  elements.transcriptionFeed.scrollTop = elements.transcriptionFeed.scrollHeight;
-
-  // Update count
-  state.transcriptCount++;
-  elements.transcriptCount.textContent = `${state.transcriptCount} lines`;
-
-  // Update total words estimate
-  state.totalWords += text.split(/\s+/).length;
-  elements.totalWordsDisplay.textContent = state.totalWords;
 }
 
 /**
@@ -244,53 +259,58 @@ function handleTranscription(data) {
  * @param {Object} data - Medical term data
  */
 function handleMedicalTerm(data) {
-  const { original, translation, phonetics, definition, context, timestamp } = data;
+  try {
+    const { original, translation, phonetics, definition, context, timestamp } = data;
 
-  // Remove empty state if first term
-  if (state.termsCount === 0) {
-    elements.medicalTermsFeed.innerHTML = '';
+    // Remove empty state if first term
+    if (state.termsCount === 0) {
+      elements.medicalTermsFeed.innerHTML = '';
+    }
+
+    // Create term card
+    const card = document.createElement('div');
+    card.className = 'term-card';
+    card.innerHTML = `
+      <div class="term-header">
+        <div class="term-original">${escapeHtml(original)}</div>
+        <div class="term-time">${formatTime(timestamp)}</div>
+      </div>
+      <div class="term-translation">
+        <span class="term-label">Translation:</span>
+        <span class="term-value">${escapeHtml(translation)}</span>
+      </div>
+      <div class="term-phonetics">
+        <span class="term-label">Pronunciation:</span>
+        <span class="term-value phonetic">${escapeHtml(phonetics)}</span>
+      </div>
+      ${definition ? `
+        <div class="term-definition">
+          <span class="term-label">Definition:</span>
+          <span class="term-value">${escapeHtml(definition)}</span>
+        </div>
+      ` : ''}
+      ${context ? `
+        <div class="term-context">
+          <span class="term-label">Context:</span>
+          <span class="term-value">"${escapeHtml(context)}"</span>
+        </div>
+      ` : ''}
+    `;
+
+    // Add to feed (prepend so newest is at top)
+    elements.medicalTermsFeed.insertBefore(card, elements.medicalTermsFeed.firstChild);
+
+    // Update count
+    state.termsCount++;
+    elements.termsCount.textContent = `${state.termsCount} terms`;
+    elements.totalTermsDisplay.textContent = state.termsCount;
+
+    // Show notification
+    showToast(`Medical term detected: ${original}`, 'info');
+  } catch (error) {
+    console.error('[Overlay] Error displaying medical term:', error);
+    showToast('Failed to display medical term', 'error');
   }
-
-  // Create term card
-  const card = document.createElement('div');
-  card.className = 'term-card';
-  card.innerHTML = `
-    <div class="term-header">
-      <div class="term-original">${escapeHtml(original)}</div>
-      <div class="term-time">${formatTime(timestamp)}</div>
-    </div>
-    <div class="term-translation">
-      <span class="term-label">Translation:</span>
-      <span class="term-value">${escapeHtml(translation)}</span>
-    </div>
-    <div class="term-phonetics">
-      <span class="term-label">Pronunciation:</span>
-      <span class="term-value phonetic">${escapeHtml(phonetics)}</span>
-    </div>
-    ${definition ? `
-      <div class="term-definition">
-        <span class="term-label">Definition:</span>
-        <span class="term-value">${escapeHtml(definition)}</span>
-      </div>
-    ` : ''}
-    ${context ? `
-      <div class="term-context">
-        <span class="term-label">Context:</span>
-        <span class="term-value">"${escapeHtml(context)}"</span>
-      </div>
-    ` : ''}
-  `;
-
-  // Add to feed (prepend so newest is at top)
-  elements.medicalTermsFeed.insertBefore(card, elements.medicalTermsFeed.firstChild);
-
-  // Update count
-  state.termsCount++;
-  elements.termsCount.textContent = `${state.termsCount} terms`;
-  elements.totalTermsDisplay.textContent = state.termsCount;
-
-  // Show notification
-  showToast(`Medical term detected: ${original}`, 'info');
 }
 
 /**
@@ -298,6 +318,7 @@ function handleMedicalTerm(data) {
  * @param {Object} data - Metrics data
  */
 function handleMetricsUpdate(data) {
+  try {
   const { metrics, timestamp } = data;
 
   state.currentMetrics = metrics;
