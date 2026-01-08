@@ -27,6 +27,48 @@ import AgentOrchestrator from './agents/agentOrchestrator.js';
 let orchestrator = null;
 let currentConfig = null;
 let isInitialized = false;
+let offscreenDocumentCreated = false;
+
+/**
+ * Create offscreen document for speech recognition
+ * Offscreen documents have access to window APIs that service workers don't
+ */
+async function ensureOffscreenDocument() {
+  // Check if offscreen document already exists
+  if (offscreenDocumentCreated) {
+    return true;
+  }
+
+  try {
+    // Check if offscreen document is already created
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [chrome.runtime.getURL('offscreen.html')]
+    });
+
+    if (existingContexts.length > 0) {
+      console.log('[Background] Offscreen document already exists');
+      offscreenDocumentCreated = true;
+      return true;
+    }
+
+    // Create offscreen document
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['AUDIO_PLAYBACK'], // Note: Using AUDIO_PLAYBACK as a workaround for speech recognition
+      justification: 'Speech recognition for real-time transcription of medical calls'
+    });
+
+    offscreenDocumentCreated = true;
+    console.log('[Background] ✓ Offscreen document created');
+    return true;
+
+  } catch (error) {
+    console.error('[Background] Failed to create offscreen document:', error);
+    offscreenDocumentCreated = false;
+    return false;
+  }
+}
 
 /**
  * Extension installation handler
@@ -96,6 +138,15 @@ async function initializeExtension() {
 async function handleStartAgents(config, platform = 'unknown') {
   try {
     console.log('[Background] Starting agents...');
+
+    // Create offscreen document for speech recognition
+    const offscreenReady = await ensureOffscreenDocument();
+    if (!offscreenReady) {
+      return {
+        success: false,
+        error: 'Failed to create offscreen document for speech recognition'
+      };
+    }
 
     if (orchestrator && orchestrator.isRunning) {
       return {

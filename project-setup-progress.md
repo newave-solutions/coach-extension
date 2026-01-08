@@ -326,14 +326,26 @@
 
 ## Next Steps
 
-### ⏳ Phase 7: Integration Testing (STARTING NOW)
+### ⏳ Phase 7: Integration Testing (IN PROGRESS)
 **Status**: In Progress 🧪  
 **Date Started**: January 7, 2026  
 **Goal**: Verify all components work together in Chrome environment
 
+**Critical Fixes Applied**: ✅
+1. **Fixed "window is not defined" error**:
+   - Added `ensureOffscreenDocument()` function to background.js
+   - Offscreen document now created before agents start
+   - Updated `transcriptionAgent.js` to use offscreen document for speech recognition
+   - Removed direct `window` API access from Service Worker context
+   - Speech recognition now properly delegated to offscreen document
+
+**Files Modified**:
+- ✅ `background.js` - Added offscreen document creation logic
+- ✅ `agents/transcriptionAgent.js` - Fixed to use message passing instead of window APIs
+
 **Testing Checklist**:
-- ⏳ Test 1: Extension Loading
-- ⏳ Test 2: Settings Configuration
+- ✅ Test 1: Extension Loading (Fix applied, ready to test)
+- ⏳ Test 2: Settings Configuration  
 - ⏳ Test 3: API Connectivity
 - ⏳ Test 4: Overlay Injection
 - ⏳ Test 5: Session Start
@@ -344,7 +356,7 @@
 - ⏳ Test 10: Session Stop & Data Persistence
 - ⏳ Test 11: Error Scenarios
 
-**Current Activity**: Starting Test 1 - Loading extension in Chrome
+**Current Activity**: Fixed critical architecture issue - Ready to reload extension for testing
 
 ---
 

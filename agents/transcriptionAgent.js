@@ -158,7 +158,7 @@ class TranscriptionAgent {
 
 
   /**
-   * Start streaming audio to Google Cloud Speech-to-Text
+   * Start streaming audio to speech recognition (via offscreen document)
    * @param {string} [platform='unknown'] - Platform name for tracking
    * @returns {Promise<void>}
    */
@@ -176,39 +176,11 @@ class TranscriptionAgent {
       // Log call start and start timer
       this.logCallStart();
 
-      // Initialize WebSocket connection
+      // Initialize speech recognition via offscreen document
       await this.initializeWebSocket();
 
-      // Process audio chunks as they arrive with Voice Activity Detection
-      this.processor.onaudioprocess = (event) => {
-        if (!this.isStreaming) return;
-
-        const audioData = event.inputBuffer.getChannelData(0);
-
-        // Calculate audio level (RMS - Root Mean Square)
-        const level = this.calculateRMS(audioData);
-
-        // Update audio statistics
-        this.audioStats.chunksProcessed++;
-        this.audioStats.averageLevel = (this.audioStats.averageLevel * 0.9) + (level * 0.1);
-        this.audioStats.peakLevel = Math.max(this.audioStats.peakLevel, level);
-
-        // Performance tracking
-        this.performanceMetrics.audioChunksProcessed++;
-
-        // Voice activity detection - skip silent chunks
-        const isSilent = level < this.silenceThreshold;
-
-        if (this.silenceDetectionEnabled && isSilent) {
-          this.audioStats.silentChunksSkipped++;
-          return; // Skip silent chunks to save bandwidth
-        }
-
-        // Convert and send audio
-        const int16Array = this.convertFloat32ToInt16(audioData);
-        this.sendAudioChunk(int16Array);
-        this.audioStats.chunksSent++;
-      };
+      // Note: Audio processing happens in offscreen document
+      // Results come back via RECOGNITION_RESULT messages handled in background.js
 
       this.onStatusChange('Streaming active');
       console.log('[TranscriptionAgent] Streaming started successfully');
@@ -222,7 +194,7 @@ class TranscriptionAgent {
         method: 'startStreaming',
         message: errorMessage,
         timestamp: Date.now(),
-        recovery: 'Check API key and network connection'
+        recovery: 'Check microphone permissions and try again'
       });
 
       this.stopStreaming();
@@ -230,104 +202,31 @@ class TranscriptionAgent {
   }
 
   /**
-   * Initialize Web Speech API for transcription
-   * Using browser's built-in speech recognition (free, works immediately)
-   * TODO: For production, switch to Google Cloud Speech-to-Text v2
+   * Initialize speech recognition via offscreen document
+   * Service workers don't have access to window, so we delegate to offscreen document
    * @returns {Promise<void>}
    */
   async initializeWebSocket() {
-    return new Promise((resolve, reject) => {
-      try {
-        // Check if Web Speech API is available
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    try {
+      console.log('[TranscriptionAgent] Starting speech recognition via offscreen document');
 
-        if (!SpeechRecognition) {
-          reject(new Error('Web Speech API not supported in this browser'));
-          return;
-        }
+      // Send message to offscreen document to start recognition
+      const response = await chrome.runtime.sendMessage({
+        action: 'START_RECOGNITION',
+        language: this.language || 'en-US'
+      });
 
-        // Create speech recognition instance
-        this.recognition = new SpeechRecognition();
-
-        // Configure recognition
-        this.recognition.continuous = true;
-        this.recognition.interimResults = true;
-        this.recognition.lang = this.language || 'en-US';
-        this.recognition.maxAlternatives = 1;
-
-        // Handle recognition results
-        this.recognition.onresult = (event) => {
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            const isFinal = event.results[i].isFinal;
-            const confidence = event.results[i][0].confidence;
-
-            // Send to transcription handler
-            this.handleTranscriptionResponse({
-              results: [{
-                alternatives: [{
-                  transcript: transcript,
-                  confidence: confidence || 0.9
-                }],
-                isFinal: isFinal
-              }]
-            });
-          }
-        };
-
-        // Handle errors
-        this.recognition.onerror = (event) => {
-          console.error('[TranscriptionAgent] Speech recognition error:', event.error);
-
-          if (event.error === 'no-speech') {
-            console.log('[TranscriptionAgent] No speech detected');
-            return;
-          }
-
-          this.onError({
-            source: 'TranscriptionAgent',
-            message: `Speech recognition error: ${event.error}`,
-            timestamp: Date.now(),
-            sessionId: this.sessionId,
-            recoverable: event.error !== 'network'
-          });
-
-          // Auto-restart on certain errors
-          if (event.error === 'network' || event.error === 'audio-capture') {
-            setTimeout(() => {
-              if (this.isStreaming) {
-                this.recognition.start();
-              }
-            }, 1000);
-          }
-        };
-
-        // Handle end event (auto-restart)
-        this.recognition.onend = () => {
-          console.log('[TranscriptionAgent] Recognition ended');
-          if (this.isStreaming) {
-            // Restart recognition to keep it continuous
-            setTimeout(() => {
-              try {
-                this.recognition.start();
-              } catch (error) {
-                console.warn('[TranscriptionAgent] Could not restart recognition:', error);
-              }
-            }, 100);
-          }
-        };
-
-        // Start recognition
-        this.recognition.start();
-        console.log('[TranscriptionAgent] Web Speech API started');
-
-        resolve();
-
-      } catch (error) {
-        console.error('[TranscriptionAgent] Failed to initialize speech recognition:', error);
-        reject(error);
+      if (response && response.success) {
+        console.log('[TranscriptionAgent] Speech recognition started in offscreen document');
+        this.onStatusChange('Speech recognition active');
+      } else {
+        throw new Error('Failed to start speech recognition in offscreen document');
       }
-    });
+
+    } catch (error) {
+      console.error('[TranscriptionAgent] Failed to initialize speech recognition:', error);
+      throw new Error(`Speech recognition initialization failed: ${error.message}`);
+    }
   }
 
   /**
@@ -431,39 +330,19 @@ class TranscriptionAgent {
       // Log call stop and save final data
       this.logCallStop();
 
-      // Stop Web Speech API recognition
-      if (this.recognition) {
-        try {
-          this.recognition.stop();
-        } catch (error) {
-          console.warn('[TranscriptionAgent] Recognition already stopped:', error);
+      // Stop offscreen recognition
+      chrome.runtime.sendMessage({
+        action: 'STOP_RECOGNITION'
+      }, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('[TranscriptionAgent] Could not stop offscreen recognition:', chrome.runtime.lastError);
         }
-        this.recognition = null;
-      }
+      });
 
       // Close WebSocket (kept for future Google Cloud integration)
       if (this.websocket) {
         this.websocket.close();
         this.websocket = null;
-      }
-
-      // Disconnect audio processor
-      if (this.processor) {
-        this.processor.disconnect();
-        this.processor.onaudioprocess = null;
-        this.processor = null;
-      }
-
-      // Close audio context
-      if (this.audioContext) {
-        this.audioContext.close();
-        this.audioContext = null;
-      }
-
-      // Stop media stream tracks
-      if (this.mediaStream) {
-        this.mediaStream.getTracks().forEach(track => track.stop());
-        this.mediaStream = null;
       }
 
       // Clear buffers
