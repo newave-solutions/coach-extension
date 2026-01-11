@@ -3,6 +3,8 @@
    Matches Image 2 Mockup with floating panels
    =================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;550;600;700&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -12,34 +14,107 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
 }
 
 /* Main Overlay Container */
 .interprecoach-overlay {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 480px;
-  max-height: calc(100vh - 40px);
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  width: 700px;
+  min-width: 500px;
+  max-width: 90vw;
+  max-height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   z-index: 999999;
   font-size: 14px;
-  color: #e5e7eb;
+  color: #E0E0E0;
   pointer-events: auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  resize: both;
+  overflow: hidden;
+  transition: background-color 0.3s, backdrop-filter 0.3s, color 0.3s;
+}
+
+/* Default semi-transparent theme */
+.theme-default {
+  background-color: rgba(23, 28, 48, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #E0E0E0;
+}
+
+/* Experimental "all invisible" inverted theme */
+.theme-inverted {
+  background-color: transparent;
+  backdrop-filter: none;
+  border: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.theme-inverted,
+.theme-inverted .text-gray-300,
+.theme-inverted .text-white,
+.theme-inverted input,
+.theme-inverted .icon-btn {
+  color: #FFFFFF;
+}
+
+.theme-inverted .panel,
+.theme-inverted .overlay-header,
+.theme-inverted .bottom-bar,
+.theme-inverted .panel-header {
+  background-color: transparent;
+  backdrop-filter: none;
+  border: none;
+}
+
+.theme-inverted .search-bar,
+.theme-inverted .manual-input {
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0;
+}
+
+.theme-inverted ::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.theme-inverted .text-blue-400 {
+  color: #60A5FA;
+}
+
+.theme-inverted .text-green-400 {
+  color: #4ADE80;
+}
+
+.theme-inverted .text-yellow-400 {
+  color: #FACC15;
+}
+
+.theme-inverted .text-blue-300 {
+  color: #93C5FD;
+}
+
+.theme-inverted .text-green-300 {
+  color: #86EFAC;
 }
 
 /* Header */
 .overlay-header {
+  cursor: move;
   background: rgba(31, 41, 55, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: 12px;
-  padding: 16px;
+  padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -136,8 +211,10 @@ body {
 /* Panels Grid */
 .panels-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px;
+  flex-grow: 1;
   max-height: calc(100vh - 200px);
   overflow-y: auto;
   padding-right: 4px;
@@ -180,6 +257,89 @@ body {
 .panel:hover {
   border-color: rgba(6, 182, 212, 0.4);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Widget Controls */
+.widget-minimize,
+.widget-close {
+  background: none;
+  border: none;
+  color: #A0A0A0;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 4px;
+  font-size: 12px;
+}
+
+.widget-minimize:hover,
+.widget-close:hover {
+  color: #FFFFFF;
+}
+
+.widget-close:hover {
+  color: #ef4444;
+}
+
+/* Minimized Panel State */
+.panel.minimized {
+  height: 36px;
+}
+
+.panel.minimized .panel-content {
+  display: none;
+}
+
+/* Audio Wave Animation */
+.audio-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 4px;
+}
+
+.audio-wave span {
+  width: 4px;
+  background-color: #4A90E2;
+  animation: wave 1.5s infinite ease-in-out;
+  border-radius: 2px;
+}
+
+@keyframes wave {
+
+  0%,
+  100% {
+    transform: scaleY(0.2);
+  }
+
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.audio-wave span:nth-child(1) {
+  height: 40px;
+  animation-delay: 0.1s;
+}
+
+.audio-wave span:nth-child(2) {
+  height: 50px;
+  animation-delay: 0.2s;
+}
+
+.audio-wave span:nth-child(3) {
+  height: 60px;
+  animation-delay: 0.3s;
+}
+
+.audio-wave span:nth-child(4) {
+  height: 50px;
+  animation-delay: 0.4s;
+}
+
+.audio-wave span:nth-child(5) {
+  height: 40px;
+  animation-delay: 0.5s;
 }
 
 /* Panel Header */
@@ -270,6 +430,7 @@ body {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -512,7 +673,7 @@ body {
     width: calc(100vw - 40px);
     right: 20px;
   }
-  
+
   .panels-grid {
     grid-template-columns: 1fr;
   }

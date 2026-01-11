@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InterpreCoach</title>
+  <title>InterpreCoach UI Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="overlay-v2.css">
 </head>
+
 <body>
   <!-- Floating Overlay Container -->
   <div id="interprecoach-overlay" class="interprecoach-overlay">
-    
+
     <!-- Header with Controls -->
     <div class="overlay-header">
       <div class="header-brand">
@@ -18,7 +22,7 @@
         </svg>
         <span class="brand-name">InterpreCoach</span>
       </div>
-      
+
       <div class="header-controls">
         <!-- Language Selector -->
         <select id="target-language" class="language-select">
@@ -31,24 +35,31 @@
           <option value="ko">Korean</option>
           <option value="vi">Vietnamese</option>
         </select>
-        
+
         <!-- Start/Stop Button -->
         <button id="session-toggle-btn" class="btn-primary" data-state="inactive">
           Start Session
         </button>
-        
-        <!-- Minimize Button -->
-        <button id="minimize-btn" class="icon-btn" title="Minimize">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
+
+
+        <!-- Theme Toggle Button -->
+        <button id="theme-toggle" class="icon-btn" title="Toggle Theme">
+          <i class="fa-solid fa-circle-half-stroke"></i>
+        </button>
+
+        <!-- Microphone Indicator -->
+        <i class="fa-solid fa-microphone text-green-400" id="mic-indicator"></i>
+
+        <!-- Settings Menu -->
+        <button class="icon-btn" title="Settings" id="settings-btn">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
         </button>
       </div>
     </div>
 
     <!-- Panels Grid -->
     <div class="panels-grid">
-      
+
       <!-- Panel 1: Live Transcription -->
       <div class="panel" id="transcription-panel">
         <div class="panel-header">
@@ -58,7 +69,10 @@
             </svg>
             <span>Live Transcription</span>
           </div>
-          <span class="panel-badge" id="transcription-count">0</span>
+          <div>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
         </div>
         <div class="panel-content">
           <div id="transcription-feed" class="transcription-feed">
@@ -76,7 +90,10 @@
             </svg>
             <span>Medical Terms</span>
           </div>
-          <span class="panel-badge" id="terms-count">0 terms</span>
+          <div>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
         </div>
         <div class="panel-content">
           <div id="medical-terms-list" class="terms-list">
@@ -94,6 +111,10 @@
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
             <span>Key Insights</span>
+          </div>
+          <div>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
           </div>
         </div>
         <div class="panel-content">
@@ -113,13 +134,17 @@
             </svg>
             <span>Your Notes</span>
           </div>
-          <button class="icon-btn" id="save-notes-btn" title="Save Notes">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
-            </svg>
-          </button>
+          <div>
+            <button class="icon-btn" id="save-notes-btn" title="Save Notes">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+            </button>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
         </div>
         <div class="panel-content">
           <textarea id="notes-textarea" class="notes-textarea" placeholder="Type your notes here..."></textarea>
@@ -136,6 +161,10 @@
               <line x1="6" y1="20" x2="6" y2="14"></line>
             </svg>
             <span>Delivery Analysis</span>
+          </div>
+          <div>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
           </div>
         </div>
         <div class="panel-content">
@@ -164,6 +193,10 @@
             </svg>
             <span>Interpreter Output</span>
           </div>
+          <div>
+            <button class="icon-btn widget-minimize"><i class="fa-solid fa-window-minimize"></i></button>
+            <button class="icon-btn widget-close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
         </div>
         <div class="panel-content">
           <div id="interpreter-output" class="interpreter-output">
@@ -190,4 +223,5 @@
 
   <script src="overlay-v2.js"></script>
 </body>
+
 </html>
