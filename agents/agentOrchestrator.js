@@ -412,19 +412,37 @@ class AgentOrchestrator {
 
   /**
    * Handle errors from any agent
-   * @param {string} source - Error source
-   * @param {Error|Object} error - Error object
+   * @param {string|Object} sourceOrError - Error source string OR complete error object
+   * @param {Error|Object} [error] - Error object (optional if first param is object)
    */
-  handleError(source, error) {
-    const errorData = {
-      source: source,
-      message: error.message || error.toString(),
-      timestamp: Date.now(),
-      sessionId: this.sessionId,
-      recoverable: this.determineRecoverability(error)
-    };
+  handleError(sourceOrError, error) {
+    let errorData;
     
-    console.error(`[Orchestrator] Error from ${source}:`, errorData);
+    // Handle both calling conventions:
+    // 1. handleError(source, error) - old format
+    // 2. handleError({source, message, ...}) - new format
+    if (typeof sourceOrError === 'object' && sourceOrError.source) {
+      // New format: single object parameter
+      errorData = {
+        source: sourceOrError.source,
+        message: sourceOrError.message || 'Unknown error',
+        timestamp: sourceOrError.timestamp || Date.now(),
+        sessionId: sourceOrError.sessionId || this.sessionId,
+        recoverable: sourceOrError.recoverable !== undefined ? sourceOrError.recoverable : true
+      };
+    } else {
+      // Old format: two parameters
+      const source = sourceOrError;
+      errorData = {
+        source: source,
+        message: error?.message || error?.toString() || 'Unknown error',
+        timestamp: Date.now(),
+        sessionId: this.sessionId,
+        recoverable: this.determineRecoverability(error)
+      };
+    }
+    
+    console.error(`[Orchestrator] Error from ${errorData.source}:`, errorData);
     
     // Call error callback
     if (this.onError) {

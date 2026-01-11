@@ -30,32 +30,32 @@ function injectOverlay() {
   }
 
   try {
-    console.log('[Content] Injecting overlay...');
+    console.log('[Content] Injecting overlay v2...');
 
     // Create iframe for overlay
     overlayIframe = document.createElement('iframe');
     overlayIframe.id = 'coach-extension-overlay';
-    overlayIframe.src = chrome.runtime.getURL('ui/overlay.html');
+    overlayIframe.src = chrome.runtime.getURL('ui/overlay-v2.html');
+    overlayIframe.setAttribute('data-coach-overlay', 'true');
 
-    // Style iframe
+    // Style iframe - floating overlay design
     overlayIframe.style.cssText = `
       position: fixed;
       top: 0;
       right: 0;
-      width: 420px;
+      width: 100vw;
       height: 100vh;
       border: none;
       z-index: 2147483647;
-      pointer-events: auto;
-      box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-      display: none;
+      pointer-events: none;
+      background: transparent;
     `;
 
     // Add to page
     document.body.appendChild(overlayIframe);
 
     overlayInjected = true;
-    console.log('[Content] ✓ Overlay injected');
+    console.log('[Content] ✓ Overlay v2 injected');
 
   } catch (error) {
     console.error('[Content] Failed to inject overlay:', error);
@@ -180,8 +180,65 @@ window.addEventListener('message', (event) => {
   }
 
   const message = event.data;
-
-  // Handle overlay control messages
+  
+  // Handle overlay messages
+  if (message.source === 'interprecoach-overlay') {
+    console.log('[Content] Message from overlay:', message.action);
+    
+    switch (message.action) {
+      case 'START_SESSION':
+        // Detect platform
+        const platform = detectPlatform();
+        
+        // Forward to background
+        chrome.runtime.sendMessage({
+          action: 'START_AGENTS',
+          config: {},
+          platform: platform
+        }, (response) => {
+          // Forward response to overlay
+          if (response) {
+            forwardToOverlay({
+              action: 'SESSION_STATE_UPDATE',
+              state: {
+                isActive: response.success,
+                sessionId: response.sessionId,
+                platform: platform
+              }
+            });
+          }
+        });
+        break;
+        
+      case 'STOP_SESSION':
+        // Forward to background
+        chrome.runtime.sendMessage({
+          action: 'STOP_AGENTS',
+          notes: message.notes
+        }, (response) => {
+          // Forward response to overlay
+          forwardToOverlay({
+            action: 'SESSION_STATE_UPDATE',
+            state: {
+              isActive: false
+            }
+          });
+        });
+        break;
+        
+      case 'LANGUAGE_CHANGE':
+      case 'SAVE_NOTES':
+      case 'MANUAL_INPUT':
+        // Forward to background
+        chrome.runtime.sendMessage(message);
+        break;
+        
+      default:
+        console.log('[Content] Unknown overlay action:', message.action);
+    }
+  }
+  
+  // Legacy handler for old overlay
   if (message.source === 'coach-overlay') {
     if (message.action === 'HIDE_OVERLAY') {
       hideOverlay();
@@ -192,21 +249,25 @@ window.addEventListener('message', (event) => {
       return;
     }
   }
-
-  // Forward to background
-  if (message.action) {
-    chrome.runtime.sendMessage(message, (response) => {
-      // Send response back to overlay
-      if (response) {
-        forwardToOverlay({
-          action: 'RESPONSE',
-          originalAction: message.action,
-          response: response
-        });
-      }
-    });
-  }
 });
+
+/**
+ * Detect platform from URL
+ */
+function detectPlatform() {
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname;
+  
+  if (hostname.includes('meet.google.com')) {
+    return 'Google Meet';
+  } else if (hostname.includes('zoom.us')) {
+    return 'Zoom';
+  } else if (hostname.includes('teams.microsoft.com')) {
+    return 'Microsoft Teams';
+  }
+  
+  return 'Unknown';
+}
 
 /**
  * Initialize on page load

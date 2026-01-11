@@ -39,6 +39,36 @@ function startRecognition(language = 'en-US') {
     try {
         console.log('[Offscreen] Starting recognition with language:', language);
 
+        // Request microphone permission BEFORE starting recognition
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(() => {
+                console.log('[Offscreen] Microphone permission granted');
+                
+                // Now start recognition
+                initializeSpeechRecognition(language);
+            })
+            .catch((error) => {
+                console.error('[Offscreen] Microphone permission denied:', error);
+                chrome.runtime.sendMessage({
+                    action: 'RECOGNITION_ERROR',
+                    error: 'Microphone permission denied. Please allow microphone access.'
+                });
+            });
+
+    } catch (error) {
+        console.error('[Offscreen] Failed to start recognition:', error);
+        chrome.runtime.sendMessage({
+            action: 'RECOGNITION_ERROR',
+            error: error.message
+        });
+    }
+}
+
+/**
+ * Initialize speech recognition after permission granted
+ */
+function initializeSpeechRecognition(language) {
+    try {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
@@ -141,11 +171,4 @@ function stopRecognition() {
     }
 }
 
-// Request microphone permission on load
-navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(() => {
-        console.log('[Offscreen] Microphone permission granted');
-    })
-    .catch((error) => {
-        console.error('[Offscreen] Microphone permission denied:', error);
-    });
+console.log('[Offscreen] Document ready - waiting for START_RECOGNITION message');

@@ -17,7 +17,8 @@ const state = {
   termsCount: 0,
   totalWords: 0,
   currentMetrics: null,
-  collapsedPanels: new Set()
+  collapsedPanels: new Set(),
+  localTimerInterval: null  // Local timer for smooth UI updates
 };
 
 /**
@@ -72,6 +73,64 @@ const elements = {
   loadingOverlay: document.getElementById('loading-overlay'),
   toastContainer: document.getElementById('toast-container')
 };
+
+/**
+ * =================================================================
+ * TIMER FUNCTIONS (Run locally to avoid Service Worker throttling)
+ * =================================================================
+ */
+
+/**
+ * Start local timer for smooth UI updates
+ * Runs independently in the overlay to avoid Service Worker throttling issues
+ */
+function startLocalTimer() {
+  // Clear any existing timer
+  if (state.localTimerInterval) {
+    clearInterval(state.localTimerInterval);
+  }
+
+  // Update timer every second
+  state.localTimerInterval = setInterval(() => {
+    if (!state.isRunning || !state.sessionStartTime) return;
+
+    const elapsed = Date.now() - state.sessionStartTime;
+    const seconds = Math.floor(elapsed / 1000);
+    const formatted = formatDuration(seconds);
+
+    // Update UI directly
+    elements.sessionTimer.textContent = formatted;
+    elements.minimizedTimer.textContent = formatted;
+  }, 1000);
+
+  console.log('[Overlay] Local timer started');
+}
+
+/**
+ * Stop local timer
+ */
+function stopLocalTimer() {
+  if (state.localTimerInterval) {
+    clearInterval(state.localTimerInterval);
+    state.localTimerInterval = null;
+    console.log('[Overlay] Local timer stopped');
+  }
+}
+
+/**
+ * Format duration in seconds to HH:MM:SS
+ */
+function formatDuration(seconds) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  return [
+    hours.toString().padStart(2, '0'),
+    minutes.toString().padStart(2, '0'),
+    secs.toString().padStart(2, '0')
+  ].join(':');
+}
 
 /**
  * Initialize overlay
@@ -319,33 +378,37 @@ function handleMedicalTerm(data) {
  */
 function handleMetricsUpdate(data) {
   try {
-  const { metrics, timestamp } = data;
+    const { metrics, timestamp } = data;
 
-  state.currentMetrics = metrics;
+    state.currentMetrics = metrics;
 
-  // Update overall score
-  if (metrics.overallScore !== undefined) {
-    elements.overallScore.textContent = Math.round(metrics.overallScore);
-    elements.overallInterpretation.textContent = interpretScore(metrics.overallScore);
-    elements.overallInterpretation.className = `metric-interpretation ${getScoreClass(metrics.overallScore)}`;
+    // Update overall score
+    if (metrics.overallScore !== undefined) {
+      elements.overallScore.textContent = Math.round(metrics.overallScore);
+      elements.overallInterpretation.textContent = interpretScore(metrics.overallScore);
+      elements.overallInterpretation.className = `metric-interpretation ${getScoreClass(metrics.overallScore)}`;
+    }
+
+    // Update WPM
+    if (metrics.averageWPM !== undefined) {
+      elements.wpmValue.textContent = Math.round(metrics.averageWPM);
+    }
+
+    // Update category scores
+    updateCategoryScore('fluency', metrics.fluency?.score);
+    updateCategoryScore('accuracy', metrics.accuracy?.score);
+    updateCategoryScore('grammar', metrics.grammar?.score);
+    updateCategoryScore('professional', metrics.professionalConduct?.score);
+
+    // Update issues summary
+    updateIssuesSummary(metrics);
+
+    // Update last update time
+    elements.lastUpdate.textContent = formatTime(timestamp);
+  } catch (error) {
+    console.error('[Overlay] Error updating metrics:', error);
+    showToast('Failed to update metrics', 'error');
   }
-
-  // Update WPM
-  if (metrics.averageWPM !== undefined) {
-    elements.wpmValue.textContent = Math.round(metrics.averageWPM);
-  }
-
-  // Update category scores
-  updateCategoryScore('fluency', metrics.fluency?.score);
-  updateCategoryScore('accuracy', metrics.accuracy?.score);
-  updateCategoryScore('grammar', metrics.grammar?.score);
-  updateCategoryScore('professional', metrics.professionalConduct?.score);
-
-  // Update issues summary
-  updateIssuesSummary(metrics);
-
-  // Update last update time
-  elements.lastUpdate.textContent = formatTime(timestamp);
 }
 
 /**
@@ -460,6 +523,9 @@ function handleCallStart(data) {
   elements.platformName.textContent = formatPlatformName(state.platform);
   elements.sessionIdDisplay.textContent = formatSessionId(state.sessionId);
 
+  // Start local timer for smooth second-by-second updates
+  startLocalTimer();
+
   showToast('Session started', 'success');
 }
 
@@ -469,6 +535,9 @@ function handleCallStart(data) {
  */
 function handleSessionComplete(data) {
   state.isRunning = false;
+
+  // Stop local timer
+  stopLocalTimer();
 
   // Update UI
   elements.statusIndicator.className = 'status-indicator status-stopped';
