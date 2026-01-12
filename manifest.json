@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Medical Interpreter Co-Pilot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time AI assistance for medical interpreters with transcription, terminology translation, and performance evaluation",
   "permissions": [
     "tabCapture",
@@ -11,6 +11,7 @@
     "offscreen"
   ],
   "host_permissions": [
+    "https://meet.google.com/*",
     "https://speech.googleapis.com/*",
     "https://translation.googleapis.com/*",
     "https://api.anthropic.com/*"
@@ -22,15 +23,18 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://meet.google.com/*",
+        "https://zoom.us/*",
+        "https://teams.microsoft.com/*"
       ],
       "js": [
         "content.js"
       ],
       "css": [
-        "ui/overlay.css"
+        "ui/overlay-v2.css"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
@@ -43,7 +47,9 @@
         "utils/*.js"
       ],
       "matches": [
-        "<all_urls>"
+        "https://meet.google.com/*",
+        "https://zoom.us/*",
+        "https://teams.microsoft.com/*"
       ]
     }
   ],
@@ -59,5 +65,8 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }

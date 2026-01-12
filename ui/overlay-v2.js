@@ -1,6 +1,7 @@
 // ===================================================================
 // InterpreCoach Overlay V2 JavaScript
 // Handles all UI interactions and message passing
+// FIXED: Start button, theme toggle, and event handling
 // ===================================================================
 
 console.log('[OverlayV2] Initializing...');
@@ -17,45 +18,99 @@ let sessionState = {
 
 // DOM Elements
 const elements = {
-  toggleBtn: document.getElementById('session-toggle-btn'),
-  themeToggle: document.getElementById('theme-toggle'),
-  settingsBtn: document.getElementById('settings-btn'),
-  micIndicator: document.getElementById('mic-indicator'),
-  languageSelect: document.getElementById('target-language'),
-  transcriptionFeed: document.getElementById('transcription-feed'),
-  transcriptionCount: document.getElementById('transcription-count'),
-  medicalTermsList: document.getElementById('medical-terms-list'),
-  termsCount: document.getElementById('terms-count'),
-  insightsList: document.getElementById('insights-list'),
-  notesTextarea: document.getElementById('notes-textarea'),
-  saveNotesBtn: document.getElementById('save-notes-btn'),
-  paceValue: document.getElementById('pace-value'),
-  paceIndicator: document.getElementById('pace-indicator'),
-  toneValue: document.getElementById('tone-value'),
-  toneIndicator: document.getElementById('tone-indicator'),
-  deliveryChart: document.getElementById('delivery-chart'),
-  interpreterOutput: document.getElementById('interpreter-output'),
-  manualInput: document.getElementById('manual-input'),
-  sendInputBtn: document.getElementById('send-input-btn'),
-  overlay: document.getElementById('interprecoach-overlay'),
-  header: document.querySelector('.overlay-header')
+  toggleBtn: null,
+  themeToggle: null,
+  settingsBtn: null,
+  micIndicator: null,
+  languageSelect: null,
+  transcriptionFeed: null,
+  transcriptionCount: null,
+  medicalTermsList: null,
+  termsCount: null,
+  insightsList: null,
+  notesTextarea: null,
+  saveNotesBtn: null,
+  paceValue: null,
+  paceIndicator: null,
+  toneValue: null,
+  toneIndicator: null,
+  deliveryChart: null,
+  interpreterOutput: null,
+  manualInput: null,
+  sendInputBtn: null,
+  overlay: null,
+  header: null
 };
+
+// Initialize DOM elements
+function initializeElements() {
+  elements.toggleBtn = document.getElementById('session-toggle-btn');
+  elements.themeToggle = document.getElementById('theme-toggle');
+  elements.settingsBtn = document.getElementById('settings-btn');
+  elements.micIndicator = document.getElementById('mic-indicator');
+  elements.languageSelect = document.getElementById('target-language');
+  elements.transcriptionFeed = document.getElementById('transcription-feed');
+  elements.transcriptionCount = document.getElementById('transcription-count');
+  elements.medicalTermsList = document.getElementById('medical-terms-list');
+  elements.termsCount = document.getElementById('terms-count');
+  elements.insightsList = document.getElementById('insights-list');
+  elements.notesTextarea = document.getElementById('notes-textarea');
+  elements.saveNotesBtn = document.getElementById('save-notes-btn');
+  elements.paceValue = document.getElementById('pace-value');
+  elements.paceIndicator = document.getElementById('pace-indicator');
+  elements.toneValue = document.getElementById('tone-value');
+  elements.toneIndicator = document.getElementById('tone-indicator');
+  elements.deliveryChart = document.getElementById('delivery-chart');
+  elements.interpreterOutput = document.getElementById('interpreter-output');
+  elements.manualInput = document.getElementById('manual-input');
+  elements.sendInputBtn = document.getElementById('send-input-btn');
+  elements.overlay = document.getElementById('interprecoach-overlay');
+  elements.header = document.querySelector('.overlay-header');
+
+  // Log initialization
+  console.log('[OverlayV2] DOM Elements initialized:', {
+    toggleBtn: !!elements.toggleBtn,
+    themeToggle: !!elements.themeToggle,
+    overlay: !!elements.overlay
+  });
+}
 
 // Initialize
 function initialize() {
   console.log('[OverlayV2] Setting up event listeners...');
 
+  // Initialize DOM elements first
+  initializeElements();
+
+  // Verify critical elements
+  if (!elements.overlay) {
+    console.error('[OverlayV2] ✗ Overlay container not found!');
+    return;
+  }
+
   // Add default theme class
   if (!elements.overlay.classList.contains('theme-default') && !elements.overlay.classList.contains('theme-inverted')) {
     elements.overlay.classList.add('theme-default');
+    console.log('[OverlayV2] ✓ Default theme applied');
   }
 
-  // Session toggle
-  elements.toggleBtn.addEventListener('click', handleSessionToggle);
+  // Session toggle - with null check
+  if (elements.toggleBtn) {
+    elements.toggleBtn.addEventListener('click', handleSessionToggle);
+    console.log('[OverlayV2] ✓ Start button listener attached');
+  } else {
+    console.error('[OverlayV2] ✗ Start button not found!');
+  }
 
-  // Theme toggle
+  // Theme toggle - with null check and click test
   if (elements.themeToggle) {
-    elements.themeToggle.addEventListener('click', handleThemeToggle);
+    elements.themeToggle.addEventListener('click', (e) => {
+      console.log('[OverlayV2] Theme toggle clicked!', e);
+      handleThemeToggle();
+    });
+    console.log('[OverlayV2] ✓ Theme toggle listener attached');
+  } else {
+    console.error('[OverlayV2] ✗ Theme toggle button not found!');
   }
 
   // Settings button
@@ -64,22 +119,35 @@ function initialize() {
   }
 
   // Drag functionality
-  setupDragFunctionality();
+  if (elements.header) {
+    setupDragFunctionality();
+  }
 
   // Widget controls
   setupWidgetControls();
 
-  // Save notes
-  elements.saveNotesBtn.addEventListener('click', saveNotes);
+  // Save notes - with null check
+  if (elements.saveNotesBtn) {
+    elements.saveNotesBtn.addEventListener('click', saveNotes);
+  }
 
-  // Send manual input
-  elements.sendInputBtn.addEventListener('click', sendManualInput);
-  elements.manualInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendManualInput();
-  });
+  // Send manual input - with null checks
+  if (elements.sendInputBtn) {
+    elements.sendInputBtn.addEventListener('click', sendManualInput);
+  }
+  if (elements.manualInput) {
+    elements.manualInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendManualInput();
+      }
+    });
+  }
 
-  // Language change
-  elements.languageSelect.addEventListener('change', handleLanguageChange);
+  // Language change - with null check
+  if (elements.languageSelect) {
+    elements.languageSelect.addEventListener('change', handleLanguageChange);
+  }
 
   // Listen for messages from parent
   window.addEventListener('message', handleMessage);
@@ -87,7 +155,8 @@ function initialize() {
   // Restore theme preference
   restoreTheme();
 
-  console.log('[OverlayV2] Initialized successfully');
+  console.log('[OverlayV2] ✓ Initialized successfully');
+  console.log('[OverlayV2] Current theme:', elements.overlay.classList.contains('theme-inverted') ? 'inverted' : 'default');
 }
 
 // Setup drag functionality
@@ -96,10 +165,15 @@ function setupDragFunctionality() {
   let offset = { x: 0, y: 0 };
 
   elements.header.addEventListener('mousedown', (e) => {
+    // Don't drag if clicking on buttons
+    if (e.target.closest('button') || e.target.closest('select')) {
+      return;
+    }
+
     isDragging = true;
     offset.x = e.clientX - elements.overlay.getBoundingClientRect().left;
     offset.y = e.clientY - elements.overlay.getBoundingClientRect().top;
-    elements.overlay.style.cursor = 'grabbing';
+    elements.header.style.cursor = 'grabbing';
   });
 
   document.addEventListener('mousemove', (e) => {
@@ -111,35 +185,72 @@ function setupDragFunctionality() {
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false;
-      elements.overlay.style.cursor = 'default';
+      elements.header.style.cursor = 'move';
     }
   });
 }
 
-// Handle theme toggle
+// Handle theme toggle - FIXED
 function handleThemeToggle() {
-  elements.overlay.classList.toggle('theme-default');
-  elements.overlay.classList.toggle('theme-inverted');
+  console.log('[OverlayV2] handleThemeToggle called');
 
-  // Save preference
-  const isInverted = elements.overlay.classList.contains('theme-inverted');
-  localStorage.setItem('interprecoach-theme', isInverted ? 'inverted' : 'default');
+  if (!elements.overlay) {
+    console.error('[OverlayV2] Overlay element not found');
+    return;
+  }
 
-  console.log('[OverlayV2] Theme toggled to:', isInverted ? 'inverted' : 'default');
+  // Toggle theme classes
+  const wasInverted = elements.overlay.classList.contains('theme-inverted');
+  
+  if (wasInverted) {
+    elements.overlay.classList.remove('theme-inverted');
+    elements.overlay.classList.add('theme-default');
+  } else {
+    elements.overlay.classList.remove('theme-default');
+    elements.overlay.classList.add('theme-inverted');
+  }
+
+  const isNowInverted = elements.overlay.classList.contains('theme-inverted');
+
+  // Save preference to localStorage
+  try {
+    localStorage.setItem('interprecoach-theme', isNowInverted ? 'inverted' : 'default');
+    console.log('[OverlayV2] ✓ Theme toggled to:', isNowInverted ? 'inverted' : 'default');
+  } catch (error) {
+    console.error('[OverlayV2] Failed to save theme:', error);
+  }
+
+  // Visual feedback
+  if (elements.themeToggle) {
+    elements.themeToggle.style.transform = 'scale(1.2)';
+    setTimeout(() => {
+      elements.themeToggle.style.transform = 'scale(1)';
+    }, 200);
+  }
 }
 
 // Restore theme from localStorage
 function restoreTheme() {
-  const savedTheme = localStorage.getItem('interprecoach-theme');
-  if (savedTheme === 'inverted') {
-    elements.overlay.classList.remove('theme-default');
-    elements.overlay.classList.add('theme-inverted');
+  try {
+    const savedTheme = localStorage.getItem('interprecoach-theme');
+    console.log('[OverlayV2] Restoring saved theme:', savedTheme);
+
+    if (savedTheme === 'inverted') {
+      elements.overlay.classList.remove('theme-default');
+      elements.overlay.classList.add('theme-inverted');
+    } else {
+      elements.overlay.classList.remove('theme-inverted');
+      elements.overlay.classList.add('theme-default');
+    }
+  } catch (error) {
+    console.error('[OverlayV2] Failed to restore theme:', error);
   }
 }
 
 // Handle settings
 function handleSettings() {
   console.log('[OverlayV2] Settings clicked');
+  showToast('Settings panel coming soon!', 'info');
   // TODO: Implement settings menu
 }
 
@@ -169,8 +280,10 @@ function setupWidgetControls() {
   });
 }
 
-// Handle session toggle (Start/Stop)
+// Handle session toggle (Start/Stop) - FIXED
 async function handleSessionToggle() {
+  console.log('[OverlayV2] handleSessionToggle called, current state:', sessionState.isActive);
+
   if (sessionState.isActive) {
     await stopSession();
   } else {
@@ -178,34 +291,49 @@ async function handleSessionToggle() {
   }
 }
 
-// Start session
+// Start session - FIXED
 async function startSession() {
   console.log('[OverlayV2] Starting session...');
 
   try {
+    // Update UI immediately
+    if (elements.toggleBtn) {
+      elements.toggleBtn.textContent = 'Stop Session';
+      elements.toggleBtn.dataset.state = 'active';
+    }
+
+    // Update state
+    sessionState.isActive = true;
+    sessionState.startTime = Date.now();
+
     // Send message to parent (content script)
     window.parent.postMessage({
       source: 'interprecoach-overlay',
       action: 'START_SESSION',
-      language: elements.languageSelect.value
+      language: elements.languageSelect ? elements.languageSelect.value : 'es'
     }, '*');
-
-    // Update UI
-    sessionState.isActive = true;
-    elements.toggleBtn.textContent = 'Stop Session';
-    elements.toggleBtn.dataset.state = 'active';
 
     // Clear existing content
     clearAllPanels();
 
-    console.log('[OverlayV2] Session start requested');
+    // Show feedback
+    showToast('Session started', 'success');
+
+    console.log('[OverlayV2] ✓ Session start requested');
   } catch (error) {
     console.error('[OverlayV2] Failed to start session:', error);
     showToast('Failed to start session', 'error');
+    
+    // Revert UI
+    if (elements.toggleBtn) {
+      elements.toggleBtn.textContent = 'Start Session';
+      elements.toggleBtn.dataset.state = 'inactive';
+    }
+    sessionState.isActive = false;
   }
 }
 
-// Stop session
+// Stop session - FIXED
 async function stopSession() {
   console.log('[OverlayV2] Stopping session...');
 
@@ -214,15 +342,22 @@ async function stopSession() {
     window.parent.postMessage({
       source: 'interprecoach-overlay',
       action: 'STOP_SESSION',
-      notes: elements.notesTextarea.value
+      notes: elements.notesTextarea ? elements.notesTextarea.value : ''
     }, '*');
 
     // Update UI
-    sessionState.isActive = false;
-    elements.toggleBtn.textContent = 'Start Session';
-    elements.toggleBtn.dataset.state = 'inactive';
+    if (elements.toggleBtn) {
+      elements.toggleBtn.textContent = 'Start Session';
+      elements.toggleBtn.dataset.state = 'inactive';
+    }
 
-    console.log('[OverlayV2] Session stopped');
+    // Update state
+    sessionState.isActive = false;
+
+    // Show feedback
+    showToast('Session stopped', 'info');
+
+    console.log('[OverlayV2] ✓ Session stopped');
   } catch (error) {
     console.error('[OverlayV2] Failed to stop session:', error);
   }
@@ -278,7 +413,7 @@ function handleAgentOutput(payload) {
 
 // Handle transcription
 function handleTranscription(data) {
-  if (!data || !data.text) return;
+  if (!data || !data.text || !elements.transcriptionFeed) return;
 
   // Remove empty state if present
   const emptyState = elements.transcriptionFeed.querySelector('.empty-state');
@@ -307,7 +442,7 @@ function handleTranscription(data) {
 
 // Handle medical term
 function handleMedicalTerm(data) {
-  if (!data || !data.term) return;
+  if (!data || !data.term || !elements.medicalTermsList) return;
 
   // Remove empty state
   const emptyState = elements.medicalTermsList.querySelector('.empty-state');
@@ -336,26 +471,30 @@ function handleMetricsUpdate(data) {
   if (!data) return;
 
   // Update delivery metrics
-  if (data.pace) {
+  if (data.pace && elements.paceValue) {
     elements.paceValue.textContent = `${data.pace} WPM`;
-    elements.paceIndicator.textContent = data.paceStatus || 'Optimal';
-    elements.paceIndicator.style.background = getPaceColor(data.paceStatus);
+    if (elements.paceIndicator) {
+      elements.paceIndicator.textContent = data.paceStatus || 'Optimal';
+      elements.paceIndicator.style.background = getPaceColor(data.paceStatus);
+    }
   }
 
-  if (data.tone) {
+  if (data.tone && elements.toneValue) {
     elements.toneValue.textContent = data.tone;
-    elements.toneIndicator.textContent = data.toneStatus || 'Good';
+    if (elements.toneIndicator) {
+      elements.toneIndicator.textContent = data.toneStatus || 'Good';
+    }
   }
 
   // Update chart if available
-  if (data.paceHistory && data.paceHistory.length > 0) {
+  if (data.paceHistory && data.paceHistory.length > 0 && elements.deliveryChart) {
     updateDeliveryChart(data.paceHistory);
   }
 }
 
 // Handle key insight
 function handleKeyInsight(data) {
-  if (!data || !data.text) return;
+  if (!data || !data.text || !elements.insightsList) return;
 
   // Remove empty state
   const emptyState = elements.insightsList.querySelector('.empty-state');
@@ -371,6 +510,8 @@ function handleKeyInsight(data) {
 
 // Update delivery chart
 function updateDeliveryChart(history) {
+  if (!elements.deliveryChart) return;
+
   elements.deliveryChart.innerHTML = '';
 
   const maxValue = Math.max(...history.map(h => h.value));
@@ -390,28 +531,28 @@ function updateDeliveryChart(history) {
 
 // Get bar color based on value
 function getBarColor(value) {
-  if (value >= 140 && value <= 160) return 'rgb(34, 197, 94)'; // Green - Optimal
-  if (value >= 120 && value < 140) return 'rgb(59, 130, 246)'; // Blue - Good
-  if (value >= 160 && value < 180) return 'rgb(249, 115, 22)'; // Orange - Fast
-  return 'rgb(239, 68, 68)'; // Red - Too fast/slow
+  if (value >= 140 && value <= 160) return '#4ADE80'; // Green - Optimal
+  if (value >= 120 && value < 140) return '#60A5FA'; // Blue - Good
+  if (value >= 160 && value < 180) return '#FACC15'; // Yellow - Fast
+  return '#DC143C'; // Red - Too fast/slow
 }
 
 // Get pace color
 function getPaceColor(status) {
-  if (status === 'Optimal') return 'rgba(34, 197, 94, 0.2)';
-  if (status === 'Good') return 'rgba(59, 130, 246, 0.2)';
-  if (status === 'Fast') return 'rgba(249, 115, 22, 0.2)';
-  return 'rgba(239, 68, 68, 0.2)';
+  if (status === 'Optimal') return 'rgba(74, 222, 128, 0.2)';
+  if (status === 'Good') return 'rgba(96, 165, 250, 0.2)';
+  if (status === 'Fast') return 'rgba(250, 204, 21, 0.2)';
+  return 'rgba(220, 20, 60, 0.2)';
 }
 
 // Handle session state update
 function handleSessionStateUpdate(state) {
   sessionState = { ...sessionState, ...state };
 
-  if (state.isActive) {
+  if (state.isActive && elements.toggleBtn) {
     elements.toggleBtn.textContent = 'Stop Session';
     elements.toggleBtn.dataset.state = 'active';
-  } else {
+  } else if (elements.toggleBtn) {
     elements.toggleBtn.textContent = 'Start Session';
     elements.toggleBtn.dataset.state = 'inactive';
   }
@@ -425,10 +566,18 @@ function handleTimerUpdate(data) {
 
 // Clear all panels
 function clearAllPanels() {
-  elements.transcriptionFeed.innerHTML = '<div class="empty-state">Listening for audio...</div>';
-  elements.medicalTermsList.innerHTML = '<div class="empty-state">Detecting medical terms...</div>';
-  elements.insightsList.innerHTML = '<div class="empty-state">Analyzing conversation...</div>';
-  elements.interpreterOutput.innerHTML = '<div class="empty-state">Translating...</div>';
+  if (elements.transcriptionFeed) {
+    elements.transcriptionFeed.innerHTML = '<div class="empty-state">Listening for audio...</div>';
+  }
+  if (elements.medicalTermsList) {
+    elements.medicalTermsList.innerHTML = '<div class="empty-state">Detecting medical terms...</div>';
+  }
+  if (elements.insightsList) {
+    elements.insightsList.innerHTML = '<div class="empty-state">Analyzing conversation...</div>';
+  }
+  if (elements.interpreterOutput) {
+    elements.interpreterOutput.innerHTML = '<div class="empty-state">Translating...</div>';
+  }
 
   sessionState.transcriptionCount = 0;
   sessionState.termsCount = 0;
@@ -438,6 +587,8 @@ function clearAllPanels() {
 
 // Handle language change
 function handleLanguageChange() {
+  if (!elements.languageSelect) return;
+
   console.log('[OverlayV2] Language changed to:', elements.languageSelect.value);
 
   // Send to background if needed
@@ -446,10 +597,14 @@ function handleLanguageChange() {
     action: 'LANGUAGE_CHANGE',
     language: elements.languageSelect.value
   }, '*');
+
+  showToast(`Language changed to ${elements.languageSelect.options[elements.languageSelect.selectedIndex].text}`, 'info');
 }
 
 // Save notes
 function saveNotes() {
+  if (!elements.notesTextarea) return;
+
   const notes = elements.notesTextarea.value;
   console.log('[OverlayV2] Saving notes...');
 
@@ -466,6 +621,8 @@ function saveNotes() {
 
 // Send manual input
 function sendManualInput() {
+  if (!elements.manualInput) return;
+
   const input = elements.manualInput.value.trim();
   if (!input) return;
 
@@ -479,12 +636,40 @@ function sendManualInput() {
   }, '*');
 
   elements.manualInput.value = '';
+  showToast('Input sent', 'success');
 }
 
 // Show toast notification
 function showToast(message, type = 'info') {
   console.log(`[OverlayV2] Toast (${type}):`, message);
-  // TODO: Implement toast UI if needed
+  
+  // Create simple toast element
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.9);
+    color: ${type === 'success' ? '#4ADE80' : type === 'error' ? '#DC143C' : '#DAA520'};
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 1px solid ${type === 'success' ? '#4ADE80' : type === 'error' ? '#DC143C' : '#DAA520'};
+    z-index: 10000;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    animation: slideInUp 0.3s ease;
+  `;
+  toast.textContent = message;
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // Escape HTML to prevent XSS
