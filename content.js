@@ -180,36 +180,62 @@ window.addEventListener('message', (event) => {
   }
 
   const message = event.data;
-  
+
   // Handle overlay messages
   if (message.source === 'interprecoach-overlay') {
     console.log('[Content] Message from overlay:', message.action);
-    
+
     switch (message.action) {
       case 'START_SESSION':
+        console.log('[Content] START_SESSION received from overlay');
         // Detect platform
         const platform = detectPlatform();
-        
+        console.log('[Content] Detected platform:', platform);
+
         // Forward to background
         chrome.runtime.sendMessage({
           action: 'START_AGENTS',
-          config: {},
+          config: { language: message.language },
           platform: platform
         }, (response) => {
+          // Check for runtime errors
+          if (chrome.runtime.lastError) {
+            console.error('[Content] Runtime error:', chrome.runtime.lastError);
+            forwardToOverlay({
+              action: 'SESSION_STATE_UPDATE',
+              state: {
+                isActive: false,
+                error: 'Failed to communicate with extension backend. Please reload the page and try again.'
+              }
+            });
+            return;
+          }
+
+          console.log('[Content] START_AGENTS response:', response);
+
           // Forward response to overlay
           if (response) {
             forwardToOverlay({
               action: 'SESSION_STATE_UPDATE',
               state: {
-                isActive: response.success,
+                isActive: response.success === true,
                 sessionId: response.sessionId,
-                platform: platform
+                platform: platform,
+                error: response.error || null
+              }
+            });
+          } else {
+            forwardToOverlay({
+              action: 'SESSION_STATE_UPDATE',
+              state: {
+                isActive: false,
+                error: 'No response from extension background. Please try again.'
               }
             });
           }
         });
         break;
-        
+
       case 'STOP_SESSION':
         // Forward to background
         chrome.runtime.sendMessage({
@@ -225,19 +251,19 @@ window.addEventListener('message', (event) => {
           });
         });
         break;
-        
+
       case 'LANGUAGE_CHANGE':
       case 'SAVE_NOTES':
       case 'MANUAL_INPUT':
         // Forward to background
         chrome.runtime.sendMessage(message);
         break;
-        
+
       default:
         console.log('[Content] Unknown overlay action:', message.action);
     }
   }
-  
+
   // Legacy handler for old overlay
   if (message.source === 'coach-overlay') {
     if (message.action === 'HIDE_OVERLAY') {
@@ -257,7 +283,7 @@ window.addEventListener('message', (event) => {
 function detectPlatform() {
   const hostname = window.location.hostname;
   const pathname = window.location.pathname;
-  
+
   if (hostname.includes('meet.google.com')) {
     return 'Google Meet';
   } else if (hostname.includes('zoom.us')) {
@@ -265,7 +291,7 @@ function detectPlatform() {
   } else if (hostname.includes('teams.microsoft.com')) {
     return 'Microsoft Teams';
   }
-  
+
   return 'Unknown';
 }
 

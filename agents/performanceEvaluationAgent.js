@@ -4,7 +4,7 @@
 // Based on NCIHC Standards of Practice for Healthcare Interpreters
 // ===================================================================
 
-import { 
+import {
   NCIHCStandards,
   PerformanceCategories,
   interpretScore,
@@ -32,7 +32,7 @@ class PerformanceEvaluationAgent {
     this.anthropicApiKey = config.anthropicApiKey;
     this.isAnalyzing = false;
     this.sessionStartTime = null;
-    
+
     // Performance metrics storage
     this.metrics = {
       // Basic metrics
@@ -40,7 +40,7 @@ class PerformanceEvaluationAgent {
       totalTime: 0,
       averageWPM: 0,
       targetWPM: WPMGuidelines.target,
-      
+
       // NCIHC Standards-based categories
       accuracy: {
         score: 100,
@@ -49,7 +49,7 @@ class PerformanceEvaluationAgent {
         additions: [],
         substitutions: []
       },
-      
+
       fluency: {
         score: 100,
         falseStarts: [],      // "The patient- I mean..."
@@ -58,7 +58,7 @@ class PerformanceEvaluationAgent {
         unnaturalPauses: [],
         hesitations: []
       },
-      
+
       grammar: {
         score: 100,
         errors: [],
@@ -67,7 +67,7 @@ class PerformanceEvaluationAgent {
         pronounErrors: [],          // "me and him went"
         articleErrors: []           // a/an/the mistakes
       },
-      
+
       sentenceStructure: {
         score: 100,
         fragmentedSentences: [],    // Incomplete sentences
@@ -75,7 +75,7 @@ class PerformanceEvaluationAgent {
         awkwardPhrasing: [],        // "could of"
         wordOrder: []               // Unnatural syntax
       },
-      
+
       professionalConduct: {
         score: 100,
         toneIssues: [],
@@ -83,57 +83,57 @@ class PerformanceEvaluationAgent {
         editorialComments: [],      // Personal opinions
         advocacyViolations: []
       },
-      
+
       culturalCompetency: {
         score: 100,
         culturalAdaptations: [],
         registerShifts: [],
         idiomHandling: []
       },
-      
+
       completeness: {
         score: 100,
         messageUnits: 0,
         interpretedUnits: 0,
         completionRate: 100
       },
-      
+
       // Advanced AI-detected patterns
       consistency: {
         terminologyConsistency: 100,
         styleConsistency: 100,
         inconsistencies: []
       },
-      
+
       cognitiveLoad: {
         complexityScore: 0,
         multitaskingInstances: [],
         memoryLapses: []
       }
     };
-    
+
     // Filler words dictionary (multi-language support)
     this.fillerWords = {
-      en: ['um', 'uh', 'like', 'you know', 'actually', 'basically', 'literally', 
-           'kind of', 'sort of', 'i mean', 'well', 'so', 'right'],
+      en: ['um', 'uh', 'like', 'you know', 'actually', 'basically', 'literally',
+        'kind of', 'sort of', 'i mean', 'well', 'so', 'right'],
       es: ['eh', 'este', 'pues', 'bueno', 'o sea', 'como', 'verdad', 'entonces']
     };
-    
+
     // Transcript buffer for context analysis
     this.transcriptBuffer = [];
     this.contextWindow = 10; // Keep last 10 utterances for context
-    
+
     // Real-time suggestions queue (not shown until end)
     this.suggestions = [];
-    
+
     // AI analysis cache
     this.aiAnalysisCache = new Map();
-    
+
     // Callbacks
-    this.onMetricsUpdate = config.onMetricsUpdate || (() => {});
-    this.onSuggestionGenerated = config.onSuggestionGenerated || (() => {});
+    this.onMetricsUpdate = config.onMetricsUpdate || (() => { });
+    this.onSuggestionGenerated = config.onSuggestionGenerated || (() => { });
     this.onError = config.onError || console.error;
-    
+
     console.log('[PerformanceAgent] Initialized');
   }
 
@@ -154,13 +154,13 @@ class PerformanceEvaluationAgent {
   async stop() {
     this.isAnalyzing = false;
     this.metrics.totalTime = (Date.now() - this.sessionStartTime) / 1000; // seconds
-    
+
     // Calculate final metrics
     this.calculateFinalScores();
-    
+
     // Generate comprehensive AI analysis
     const report = await this.generateFinalReport();
-    
+
     console.log('[PerformanceAgent] Session complete');
     return report;
   }
@@ -172,27 +172,27 @@ class PerformanceEvaluationAgent {
    */
   async processTranscription(transcriptionData) {
     if (!this.isAnalyzing) return;
-    
+
     const { text, isFinal, timestamp, speaker } = transcriptionData;
-    
+
     // Only analyze interpreter's speech (not patient/provider)
     // In real implementation, would use speaker diarization
     // For now, analyze all final transcriptions
     if (!isFinal) {
       return;
     }
-    
+
     // Add to buffer
     this.transcriptBuffer.push({
       text,
       timestamp,
       wordCount: this.countWords(text)
     });
-    
+
     // Update word count and WPM
     this.metrics.totalWords += this.countWords(text);
     this.updateWPM();
-    
+
     try {
       // Run multiple analysis passes (all async, parallel)
       await Promise.all([
@@ -202,20 +202,20 @@ class PerformanceEvaluationAgent {
         this.analyzeProfessionalConduct(text, timestamp),
         this.analyzeCompleteness(text, timestamp)
       ]);
-      
+
       // Periodic deep AI analysis (every 10 utterances)
       if (this.transcriptBuffer.length % 10 === 0 && this.anthropicApiKey) {
         await this.runDeepAIAnalysis();
       }
-      
+
       // Trim buffer
       if (this.transcriptBuffer.length > this.contextWindow) {
         this.transcriptBuffer.shift();
       }
-      
+
       // Update metrics (callback will be throttled externally by orchestrator)
       this.onMetricsUpdate(this.metrics);
-      
+
     } catch (error) {
       this.onError({
         source: 'PerformanceAgent',
@@ -229,7 +229,7 @@ class PerformanceEvaluationAgent {
   // ============================================
   // FLUENCY ANALYSIS
   // ============================================
-  
+
   /**
    * Analyze fluency issues in text
    * @param {string} text - Text to analyze
@@ -249,7 +249,7 @@ class PerformanceEvaluationAgent {
       });
       this.adjustScore('fluency', -2 * falseStarts.length);
     }
-    
+
     // Detect stutters
     const stutters = this.detectStutters(text);
     if (stutters.length > 0) {
@@ -263,7 +263,7 @@ class PerformanceEvaluationAgent {
       });
       this.adjustScore('fluency', -1 * stutters.length);
     }
-    
+
     // Detect filler words
     const fillers = this.detectFillerWords(text);
     if (fillers.length > 0) {
@@ -277,7 +277,7 @@ class PerformanceEvaluationAgent {
       });
       this.adjustScore('fluency', -0.5 * fillers.reduce((sum, f) => sum + f.count, 0));
     }
-    
+
     // Detect unnatural pauses
     const pauses = this.detectUnnaturalPauses(text);
     if (pauses.length > 0) {
@@ -300,13 +300,13 @@ class PerformanceEvaluationAgent {
       /\b(\w+)\s*-\s*(?:I mean|sorry|actually)\s*,?\s*\1/gi,
       /\b(\w+(?:\s+\w+)?)\s*-\s*(\w+)/gi
     ];
-    
+
     const falseStarts = [];
     patterns.forEach(pattern => {
       const matches = text.match(pattern);
       if (matches) falseStarts.push(...matches);
     });
-    
+
     return falseStarts;
   }
 
@@ -328,7 +328,7 @@ class PerformanceEvaluationAgent {
   detectFillerWords(text) {
     const lowerText = text.toLowerCase();
     const fillers = [];
-    
+
     Object.values(this.fillerWords).flat().forEach(filler => {
       const regex = new RegExp(`\\b${filler}\\b`, 'gi');
       const matches = lowerText.match(regex);
@@ -339,7 +339,7 @@ class PerformanceEvaluationAgent {
         });
       }
     });
-    
+
     return fillers;
   }
 
@@ -357,7 +357,7 @@ class PerformanceEvaluationAgent {
   // ============================================
   // GRAMMAR ANALYSIS
   // ============================================
-  
+
   /**
    * Analyze grammar errors
    * @param {string} text - Text to analyze
@@ -374,7 +374,7 @@ class PerformanceEvaluationAgent {
       })));
       this.adjustScore('grammar', -3 * svErrors.length);
     }
-    
+
     // Tense errors
     const tenseErrors = this.detectTenseErrors(text);
     if (tenseErrors.length > 0) {
@@ -385,7 +385,7 @@ class PerformanceEvaluationAgent {
       })));
       this.adjustScore('grammar', -2 * tenseErrors.length);
     }
-    
+
     // Pronoun errors
     const pronounErrors = this.detectPronounErrors(text);
     if (pronounErrors.length > 0) {
@@ -405,14 +405,14 @@ class PerformanceEvaluationAgent {
    */
   detectSubjectVerbAgreement(text) {
     const errors = [];
-    
+
     const patterns = [
       { pattern: /\b(he|she|it)\s+don't\b/gi, correct: "doesn't" },
       { pattern: /\b(they|we)\s+was\b/gi, correct: 'were' },
       { pattern: /\b(he|she|it)\s+were\b/gi, correct: 'was' },
       { pattern: /\b(I|you|we|they)\s+is\b/gi, correct: 'are/am' }
     ];
-    
+
     patterns.forEach(({ pattern, correct }) => {
       const matches = text.match(pattern);
       if (matches) {
@@ -425,7 +425,7 @@ class PerformanceEvaluationAgent {
         });
       }
     });
-    
+
     return errors;
   }
 
@@ -438,7 +438,7 @@ class PerformanceEvaluationAgent {
     const errors = [];
     const tenseShiftPattern = /\b(had|has|have)\s+\w+ed\s+and\s+\w+s\b/gi;
     const matches = text.match(tenseShiftPattern);
-    
+
     if (matches) {
       matches.forEach(match => {
         errors.push({
@@ -448,7 +448,7 @@ class PerformanceEvaluationAgent {
         });
       });
     }
-    
+
     return errors;
   }
 
@@ -459,12 +459,12 @@ class PerformanceEvaluationAgent {
    */
   detectPronounErrors(text) {
     const errors = [];
-    
+
     const patterns = [
       { pattern: /\b(me and \w+)\s+(is|was|are)/gi, correct: '[person] and I' },
       { pattern: /\bbetween you and I\b/gi, correct: 'between you and me' }
     ];
-    
+
     patterns.forEach(({ pattern, correct }) => {
       const matches = text.match(pattern);
       if (matches) {
@@ -477,14 +477,14 @@ class PerformanceEvaluationAgent {
         });
       }
     });
-    
+
     return errors;
   }
 
   // ============================================
   // SENTENCE STRUCTURE ANALYSIS
   // ============================================
-  
+
   /**
    * Analyze sentence structure
    * @param {string} text - Text to analyze
@@ -502,7 +502,7 @@ class PerformanceEvaluationAgent {
       })));
       this.adjustScore('sentenceStructure', -2 * fragments.length);
     }
-    
+
     // Detect run-on sentences
     const runOns = this.detectRunOnSentences(text);
     if (runOns.length > 0) {
@@ -513,7 +513,7 @@ class PerformanceEvaluationAgent {
       })));
       this.adjustScore('sentenceStructure', -2 * runOns.length);
     }
-    
+
     // Detect awkward phrasing
     const awkward = this.detectAwkwardPhrasing(text);
     if (awkward.length > 0) {
@@ -550,7 +550,7 @@ class PerformanceEvaluationAgent {
     const sentences = text.split(/[.!?]+/).filter(s => s.trim());
     return sentences.filter(s => {
       const words = s.split(/\s+/);
-      const hasMultipleIndependentClauses = 
+      const hasMultipleIndependentClauses =
         (s.match(/,\s*(?:and|but|or|so)\s+/g) || []).length > 2;
       return words.length > 30 || hasMultipleIndependentClauses;
     });
@@ -563,12 +563,12 @@ class PerformanceEvaluationAgent {
    */
   detectAwkwardPhrasing(text) {
     const awkwardPatterns = [
-      { 
-        pattern: /\bin regards to\b/gi, 
+      {
+        pattern: /\bin regards to\b/gi,
         suggestion: 'regarding or with regard to'
       },
-      { 
-        pattern: /\bcould of\b|\bshould of\b|\bwould of\b/gi, 
+      {
+        pattern: /\bcould of\b|\bshould of\b|\bwould of\b/gi,
         suggestion: 'could have/should have/would have'
       },
       {
@@ -576,7 +576,7 @@ class PerformanceEvaluationAgent {
         suggestion: 'free or at no cost'
       }
     ];
-    
+
     const awkward = [];
     awkwardPatterns.forEach(({ pattern, suggestion }) => {
       const matches = text.match(pattern);
@@ -586,7 +586,7 @@ class PerformanceEvaluationAgent {
         });
       }
     });
-    
+
     return awkward;
   }
 
@@ -603,7 +603,7 @@ class PerformanceEvaluationAgent {
   // ============================================
   // PROFESSIONAL CONDUCT ANALYSIS (NCIHC)
   // ============================================
-  
+
   /**
    * Analyze professional conduct (NCIHC standards)
    * @param {string} text - Text to analyze
@@ -622,7 +622,7 @@ class PerformanceEvaluationAgent {
       })));
       this.adjustScore('professionalConduct', -5 * firstPersonViolations.length);
     }
-    
+
     // Detect editorial comments (CRITICAL)
     const editorialComments = this.detectEditorialComments(text);
     if (editorialComments.length > 0) {
@@ -648,12 +648,12 @@ class PerformanceEvaluationAgent {
       /\bI'm interpreting that\b/gi,
       /\bthe patient is asking\b/gi
     ];
-    
+
     patterns.forEach(pattern => {
       const matches = text.match(pattern);
       if (matches) violations.push(...matches);
     });
-    
+
     return violations;
   }
 
@@ -670,20 +670,20 @@ class PerformanceEvaluationAgent {
       /\bif I were you\b/gi,
       /\bthat's good\/bad\b/gi
     ];
-    
+
     const comments = [];
     editorialPatterns.forEach(pattern => {
       const matches = text.match(pattern);
       if (matches) comments.push(...matches);
     });
-    
+
     return comments;
   }
 
   // ============================================
   // COMPLETENESS ANALYSIS
   // ============================================
-  
+
   /**
    * Analyze message completeness
    * @param {string} text - Text to analyze
@@ -693,29 +693,29 @@ class PerformanceEvaluationAgent {
     // Track message units
     this.metrics.completeness.messageUnits++;
     this.metrics.completeness.interpretedUnits++;
-    
+
     // Calculate completion rate
-    this.metrics.completeness.completionRate = 
+    this.metrics.completeness.completionRate =
       (this.metrics.completeness.interpretedUnits / this.metrics.completeness.messageUnits) * 100;
   }
 
   // ============================================
   // DEEP AI ANALYSIS (Anthropic Claude)
   // ============================================
-  
+
   /**
    * Run deep AI analysis using Anthropic Claude
    * Analyzes patterns that require sophisticated NLP
    */
   async runDeepAIAnalysis() {
     if (!this.anthropicApiKey) return;
-    
+
     try {
       const recentTranscript = this.transcriptBuffer
         .slice(-10)
         .map(t => t.text)
         .join('\n');
-      
+
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -726,42 +726,55 @@ class PerformanceEvaluationAgent {
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 2000,
+          system: `You are a clinical medical interpretation evaluator. You analyze interpreter performance and provide ONLY structured JSON output.
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY valid JSON. No explanations, no commentary, no markdown formatting.
+- Do not include any text before or after the JSON object.
+- Do not use code blocks or markdown formatting.
+- Provide scores as integers from 0-100.
+- Include specific examples as strings in arrays.
+- Be concise and factual in all assessments.`,
           messages: [{
             role: 'user',
-            content: `You are an expert medical interpretation evaluator. Analyze this interpreted speech for:
-1. Terminology consistency
-2. Style consistency  
-3. Cultural adaptation
-4. Register appropriateness
-5. Subtle accuracy issues
-6. Cognitive load indicators
+            content: `Analyze the following medical interpretation transcript for quality metrics. Return ONLY a JSON object with this exact structure:
 
-Recent transcript:
+{
+  "terminologyConsistency": <0-100 score>,
+  "styleConsistency": <0-100 score>,
+  "culturalAdaptations": [<array of strings describing cultural adaptations observed>],
+  "registerAppropriate": <true/false>,
+  "accuracyIssues": [<array of strings describing accuracy problems>],
+  "cognitiveLoad": <0-100 score>,
+  "inconsistencies": [<array of strings describing terminology or style inconsistencies>]
+}
+
+Transcript:
 ${recentTranscript}
 
-Provide analysis in JSON format with scores (0-100) and specific examples.`
+Remember: Return ONLY the JSON object, nothing else.`
           }]
         })
       });
-      
+
       if (!response.ok) {
         throw new Error(`Anthropic API returned ${response.status}`);
       }
-      
+
       const data = await response.json();
       const analysis = this.parseAIResponse(data.content[0].text);
-      
+
       // Update consistency metrics
       if (analysis.terminologyConsistency) {
         this.metrics.consistency.terminologyConsistency = analysis.terminologyConsistency;
         this.metrics.consistency.inconsistencies.push(...(analysis.inconsistencies || []));
       }
-      
+
       // Update cultural competency
       if (analysis.culturalAdaptations) {
         this.metrics.culturalCompetency.culturalAdaptations.push(...analysis.culturalAdaptations);
       }
-      
+
     } catch (error) {
       this.onError({
         source: 'PerformanceAgent',
@@ -789,7 +802,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
   // ============================================
   // HELPER METHODS
   // ============================================
-  
+
   /**
    * Count words in text
    * @param {string} text - Text to count
@@ -813,7 +826,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
    * @param {number} adjustment - Score adjustment (negative for penalties)
    */
   adjustScore(category, adjustment) {
-    this.metrics[category].score = Math.max(0, Math.min(100, 
+    this.metrics[category].score = Math.max(0, Math.min(100,
       this.metrics[category].score + adjustment
     ));
   }
@@ -831,7 +844,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
       professionalConduct: this.metrics.professionalConduct.score,
       culturalCompetency: this.metrics.culturalCompetency.score
     };
-    
+
     this.metrics.overallScore = calculateOverallScore(categoryScores);
   }
 
@@ -848,7 +861,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         this.metrics[key] = [];
       }
     });
-    
+
     // Reset counters
     this.metrics.totalWords = 0;
     this.metrics.totalTime = 0;
@@ -861,7 +874,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
   // ============================================
   // FINAL REPORT GENERATION
   // ============================================
-  
+
   /**
    * Generate comprehensive final report
    * @returns {Promise<Object>} Performance report
@@ -875,7 +888,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
       professionalConduct: this.metrics.professionalConduct.score,
       culturalCompetency: this.metrics.culturalCompetency.score
     };
-    
+
     const report = {
       metadata: {
         sessionDuration: this.metrics.totalTime,
@@ -884,23 +897,23 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         targetWPM: this.metrics.targetWPM,
         timestamp: new Date().toISOString()
       },
-      
+
       overallScore: this.metrics.overallScore,
       scoreInterpretation: interpretScore(this.metrics.overallScore),
-      
+
       categoryScores: categoryScores,
-      
+
       detailedFindings: this.metrics,
-      
+
       topSuggestions: await this.generateTopSuggestions(),
-      
+
       strengths: this.identifyStrengths(),
-      
+
       areasForImprovement: this.identifyImprovementAreas(),
-      
+
       ncihcCompliance: generateComplianceReport(categoryScores)
     };
-    
+
     return report;
   }
 
@@ -910,7 +923,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
    */
   async generateTopSuggestions() {
     const suggestions = [];
-    
+
     // Critical issues first (professional conduct)
     if (this.metrics.professionalConduct.score < 80) {
       suggestions.push({
@@ -922,7 +935,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
           .slice(0, 3)
       });
     }
-    
+
     // High priority (accuracy)
     if (this.metrics.accuracy.score < 85) {
       suggestions.push({
@@ -932,7 +945,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         recommendations: ['Review note-taking techniques', 'Practice memory retention exercises']
       });
     }
-    
+
     // Medium priority (fluency)
     if (this.metrics.fluency.fillerWords.length > 10) {
       suggestions.push({
@@ -942,7 +955,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         recommendations: ['Practice pausing instead of using fillers', 'Record and review your interpretations']
       });
     }
-    
+
     return suggestions;
   }
 
@@ -952,7 +965,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
    */
   identifyStrengths() {
     const strengths = [];
-    
+
     Object.entries(this.metrics).forEach(([category, data]) => {
       if (data.score && data.score >= 90) {
         strengths.push({
@@ -962,7 +975,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         });
       }
     });
-    
+
     return strengths;
   }
 
@@ -972,7 +985,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
    */
   identifyImprovementAreas() {
     const areas = [];
-    
+
     Object.entries(this.metrics).forEach(([category, data]) => {
       if (data.score && data.score < 80) {
         areas.push({
@@ -983,7 +996,7 @@ Provide analysis in JSON format with scores (0-100) and specific examples.`
         });
       }
     });
-    
+
     return areas.sort((a, b) => a.score - b.score);
   }
 

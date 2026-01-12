@@ -138,20 +138,22 @@ async function initializeExtension() {
 async function handleStartAgents(config, platform = 'unknown') {
   try {
     console.log('[Background] Starting agents...');
+    console.log('[Background] Platform:', platform);
+    console.log('[Background] Config:', config);
 
     // Create offscreen document for speech recognition
     const offscreenReady = await ensureOffscreenDocument();
     if (!offscreenReady) {
       return {
         success: false,
-        error: 'Failed to create offscreen document for speech recognition'
+        error: 'Failed to initialize speech recognition. Please check microphone permissions and try again.'
       };
     }
 
     if (orchestrator && orchestrator.isRunning) {
       return {
         success: false,
-        error: 'Agents already running'
+        error: 'Session already active. Please stop the current session before starting a new one.'
       };
     }
 
@@ -169,22 +171,42 @@ async function handleStartAgents(config, platform = 'unknown') {
     if (!agentConfig.googleCloudApiKey) {
       return {
         success: false,
-        error: 'Google Cloud API key not configured. Please configure in settings.'
+        error: 'API keys not configured. Please click the extension icon to open settings and configure your API keys.'
       };
     }
 
+    console.log('[Background] Creating orchestrator...');
     // Create orchestrator
     orchestrator = new AgentOrchestrator(agentConfig);
 
+    console.log('[Background] Starting orchestrator for platform:', platform);
     // Start agents
     const result = await orchestrator.start(platform);
 
     if (result.success) {
       console.log('[Background] ✓ Agents started successfully');
       console.log('[Background] Session ID:', result.sessionId);
+
+      // Store session state in session storage
+      try {
+        await chrome.storage.session.set({
+          sessionActive: true,
+          sessionId: result.sessionId,
+          platform: platform,
+          startTime: Date.now()
+        });
+        console.log('[Background] Session state saved');
+      } catch (storageError) {
+        console.error('[Background] Failed to save session state:', storageError);
+      }
     } else {
       console.error('[Background] Failed to start agents:', result.message);
       orchestrator = null;
+
+      return {
+        success: false,
+        error: result.message || 'Failed to start agents. Please try again.'
+      };
     }
 
     return result;
@@ -197,7 +219,7 @@ async function handleStartAgents(config, platform = 'unknown') {
 
     return {
       success: false,
-      error: error.message
+      error: error.message || 'An unexpected error occurred. Please try again.'
     };
   }
 }

@@ -201,7 +201,7 @@ function handleThemeToggle() {
 
   // Toggle theme classes
   const wasInverted = elements.overlay.classList.contains('theme-inverted');
-  
+
   if (wasInverted) {
     elements.overlay.classList.remove('theme-inverted');
     elements.overlay.classList.add('theme-default');
@@ -291,20 +291,25 @@ async function handleSessionToggle() {
   }
 }
 
-// Start session - FIXED
+// Start session - ENHANCED WITH LOADING & ERROR HANDLING
 async function startSession() {
   console.log('[OverlayV2] Starting session...');
 
-  try {
-    // Update UI immediately
-    if (elements.toggleBtn) {
-      elements.toggleBtn.textContent = 'Stop Session';
-      elements.toggleBtn.dataset.state = 'active';
-    }
+  // Prevent multiple clicks
+  if (sessionState.isActive || elements.toggleBtn.dataset.state === 'loading') {
+    console.log('[OverlayV2] Already starting or active, ignoring');
+    return;
+  }
 
-    // Update state
-    sessionState.isActive = true;
-    sessionState.startTime = Date.now();
+  try {
+    // Set loading state
+    elements.toggleBtn.dataset.state = 'loading';
+    const btnText = elements.toggleBtn.querySelector('.btn-text');
+    const btnSpinner = elements.toggleBtn.querySelector('.btn-spinner');
+
+    if (btnText) btnText.textContent = 'Starting...';
+    if (btnSpinner) btnSpinner.style.display = 'inline';
+    elements.toggleBtn.disabled = true;
 
     // Send message to parent (content script)
     window.parent.postMessage({
@@ -316,21 +321,51 @@ async function startSession() {
     // Clear existing content
     clearAllPanels();
 
-    // Show feedback
-    showToast('Session started', 'success');
+    // Start timeout for failure detection (10 seconds)
+    const timeoutId = setTimeout(() => {
+      if (!sessionState.isActive) {
+        console.error('[OverlayV2] Session start timed out');
+        handleStartFailure('Session start timed out. Please check your internet connection and try again.');
+      }
+    }, 10000);
 
-    console.log('[OverlayV2] ✓ Session start requested');
+    // Store timeout ID for cleanup
+    sessionState.startTimeoutId = timeoutId;
+
+    console.log('[OverlayV2] Session start requested, waiting for response...');
   } catch (error) {
     console.error('[OverlayV2] Failed to start session:', error);
-    showToast('Failed to start session', 'error');
-    
-    // Revert UI
-    if (elements.toggleBtn) {
-      elements.toggleBtn.textContent = 'Start Session';
-      elements.toggleBtn.dataset.state = 'inactive';
-    }
-    sessionState.isActive = false;
+    handleStartFailure(error.message || 'Failed to start session');
   }
+}
+
+// Handle start failure
+function handleStartFailure(errorMessage) {
+  console.error('[OverlayV2] Start failed:', errorMessage);
+
+  // Clear timeout
+  if (sessionState.startTimeoutId) {
+    clearTimeout(sessionState.startTimeoutId);
+    sessionState.startTimeoutId = null;
+  }
+
+  // Reset button
+  elements.toggleBtn.dataset.state = 'inactive';
+  const btnText = elements.toggleBtn.querySelector('.btn-text');
+  const btnSpinner = elements.toggleBtn.querySelector('.btn-spinner');
+
+  if (btnText) btnText.textContent = 'Start Session';
+  if (btnSpinner) btnSpinner.style.display = 'none';
+  elements.toggleBtn.disabled = false;
+
+  // Reset microphone indicator
+  if (elements.micIndicator) {
+    elements.micIndicator.classList.remove('text-green-400');
+    elements.micIndicator.classList.add('text-gray-400');
+  }
+
+  // Show error
+  showError(errorMessage);
 }
 
 // Stop session - FIXED
@@ -391,23 +426,27 @@ function handleMessage(event) {
 function handleAgentOutput(payload) {
   if (!payload || !payload.type) return;
 
-  console.log('[OverlayV2] Agent output:', payload.type);
+  console.log('[OverlayV2] Agent output received:', payload.type);
 
   switch (payload.type) {
     case 'TRANSCRIPTION':
       handleTranscription(payload.data);
       break;
+
     case 'MEDICAL_TERM':
       handleMedicalTerm(payload.data);
       break;
+
     case 'METRICS_UPDATE':
       handleMetricsUpdate(payload.data);
       break;
-    case 'KEY_INSIGHT':
-      handleKeyInsight(payload.data);
+
+    case 'SESSION_COMPLETE':
+      handleSessionComplete(payload.data);
       break;
+
     default:
-      console.log('[OverlayV2] Unknown payload type:', payload.type);
+      console.log('[OverlayV2] Unknown output type:', payload.type);
   }
 }
 
@@ -415,22 +454,26 @@ function handleAgentOutput(payload) {
 function handleTranscription(data) {
   if (!data || !data.text || !elements.transcriptionFeed) return;
 
-  // Remove empty state if present
+  // Remove empty state if first transcription
   const emptyState = elements.transcriptionFeed.querySelector('.empty-state');
-  if (emptyState) emptyState.remove();
+  if (emptyState) {
+    emptyState.remove();
+  }
 
   // Create transcription item
   const item = document.createElement('div');
   item.className = 'transcription-item';
   item.innerHTML = `
-    <div class="transcription-speaker">${data.speaker || 'Speaker'}:</div>
     <div class="transcription-text">${escapeHtml(data.text)}</div>
-    ${data.confidence ? `<div class="transcription-confidence">Confidence: ${Math.round(data.confidence * 100)}%</div>` : ''}
+    <div class="transcription-meta">
+      ${data.confidence ? `<span class="confidence">Confidence: ${Math.round(data.confidence * 100)}%</span>` : ''}
+      ${data.timestamp ? `<span class="timestamp">${new Date(data.timestamp).toLocaleTimeString()}</span>` : ''}
+    </div>
   `;
 
   elements.transcriptionFeed.appendChild(item);
 
-  // Auto-scroll
+  // Auto-scroll to bottom
   elements.transcriptionFeed.scrollTop = elements.transcriptionFeed.scrollHeight;
 
   // Update count
@@ -440,30 +483,62 @@ function handleTranscription(data) {
   }
 }
 
-// Handle medical term
+// Handle medical term detection
 function handleMedicalTerm(data) {
-  if (!data || !data.term || !elements.medicalTermsList) return;
+  console.log('[OverlayV2] Medical term detected:', data);
 
-  // Remove empty state
+  if (!data || !data.original) return;
+  if (!elements.medicalTermsList) return;
+
+  // Remove empty state if first term
   const emptyState = elements.medicalTermsList.querySelector('.empty-state');
-  if (emptyState) emptyState.remove();
+  if (emptyState) {
+    emptyState.remove();
+  }
 
-  // Create term card
+  // Create medical term card
   const card = document.createElement('div');
   card.className = 'term-card';
   card.innerHTML = `
-    <div class="term-english">${escapeHtml(data.term)}</div>
-    ${data.translation ? `<div class="term-translation">${escapeHtml(data.translation)}</div>` : ''}
-    ${data.phonetic ? `<div class="term-phonetic">[${escapeHtml(data.phonetic)}]</div>` : ''}
+    <div class="term-original">${escapeHtml(data.original)}</div>
+    ${data.translation ?
+      `<div class="term-translation">
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <circle cx="12" cy="12" r="10"></circle>
+           <line x1="2" y1="12" x2="22" y2="12"></line>
+           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+         </svg>
+         <span>${escapeHtml(data.translation)}</span>
+       </div>` : ''}
+    ${data.phonetics ?
+      `<div class="term-phonetics">
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+           <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+         </svg>
+         <span>[${escapeHtml(data.phonetics)}]</span>
+       </div>` : ''}
+    ${data.definition ?
+      `<div class="term-definition">${escapeHtml(data.definition)}</div>` : ''}
+    ${data.context ?
+      `<div class="term-context">
+         <em>"${escapeHtml(data.context)}"</em>
+       </div>` : ''}
   `;
 
+  // Add to list
   elements.medicalTermsList.appendChild(card);
+
+  // Auto-scroll to show latest term
+  elements.medicalTermsList.scrollTop = elements.medicalTermsList.scrollHeight;
 
   // Update count
   sessionState.termsCount++;
   if (elements.termsCount) {
-    elements.termsCount.textContent = `${sessionState.termsCount} terms`;
+    elements.termsCount.textContent = `${sessionState.termsCount} term${sessionState.termsCount !== 1 ? 's' : ''}`;
   }
+
+  console.log('[OverlayV2] Medical term displayed:', data.original);
 }
 
 // Handle metrics update
@@ -545,17 +620,61 @@ function getPaceColor(status) {
   return 'rgba(220, 20, 60, 0.2)';
 }
 
-// Handle session state update
+// Handle session state update - ENHANCED
 function handleSessionStateUpdate(state) {
+  console.log('[OverlayV2] Session state update received:', state);
+
   sessionState = { ...sessionState, ...state };
 
-  if (state.isActive && elements.toggleBtn) {
-    elements.toggleBtn.textContent = 'Stop Session';
-    elements.toggleBtn.dataset.state = 'active';
-  } else if (elements.toggleBtn) {
-    elements.toggleBtn.textContent = 'Start Session';
-    elements.toggleBtn.dataset.state = 'inactive';
+  // Clear start timeout if active
+  if (sessionState.startTimeoutId) {
+    clearTimeout(sessionState.startTimeoutId);
+    sessionState.startTimeoutId = null;
   }
+
+  const btnText = elements.toggleBtn?.querySelector('.btn-text');
+  const btnSpinner = elements.toggleBtn?.querySelector('.btn-spinner');
+
+  if (state.isActive) {
+    // Session started successfully
+    if (elements.toggleBtn) {
+      elements.toggleBtn.dataset.state = 'active';
+      if (btnText) btnText.textContent = 'Stop Session';
+      if (btnSpinner) btnSpinner.style.display = 'none';
+      elements.toggleBtn.disabled = false;
+    }
+
+    // Update microphone indicator
+    if (elements.micIndicator) {
+      elements.micIndicator.classList.remove('text-gray-400');
+      elements.micIndicator.classList.add('text-green-400');
+    }
+
+    // Show success feedback
+    showToast('Session started successfully!', 'success');
+
+  } else {
+    // Session stopped or failed
+    if (elements.toggleBtn) {
+      elements.toggleBtn.dataset.state = 'inactive';
+      if (btnText) btnText.textContent = 'Start Session';
+      if (btnSpinner) btnSpinner.style.display = 'none';
+      elements.toggleBtn.disabled = false;
+    }
+
+    // Update microphone indicator
+    if (elements.micIndicator) {
+      elements.micIndicator.classList.remove('text-green-400');
+      elements.micIndicator.classList.add('text-gray-400');
+    }
+  }
+
+  // Handle error in state update
+  if (state.error) {
+    showError(state.error);
+  }
+
+  console.log('[OverlayV2] Session state updated, isActive:', sessionState.isActive);
 }
 
 // Handle timer update
@@ -642,7 +761,7 @@ function sendManualInput() {
 // Show toast notification
 function showToast(message, type = 'info') {
   console.log(`[OverlayV2] Toast (${type}):`, message);
-  
+
   // Create simple toast element
   const toast = document.createElement('div');
   toast.style.cssText = `
@@ -661,15 +780,36 @@ function showToast(message, type = 'info') {
     animation: slideInUp 0.3s ease;
   `;
   toast.textContent = message;
-  
+
   document.body.appendChild(toast);
-  
+
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(20px)';
     toast.style.transition = 'all 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+}
+
+// Show error notification
+function showError(message) {
+  console.error('[OverlayV2] Error:', message);
+
+  // Create error toast
+  const toast = document.createElement('div');
+  toast.className = 'error-toast';
+  toast.innerHTML = `
+    <i class="fa-solid fa-exclamation-triangle"></i>
+    <span>${escapeHtml(message)}</span>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
 }
 
 // Escape HTML to prevent XSS
